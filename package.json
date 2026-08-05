@@ -2,8 +2,8 @@
   "name": "cis-lead-crm",
   "version": "0.1.0",
   "private": true,
-  "description": "CIS lead-to-revenue CRM starter.",
-  "type": "module",
+  "description": "Cooper Installation Services lead-to-revenue pipeline prototype and Supabase handoff schema.",
+  "type": "commonjs",
   "scripts": {
     "dev": "node scripts/serve.mjs",
     "test": "node tests/reporting.test.mjs"
