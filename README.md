@@ -27,6 +27,16 @@ Then open `http://localhost:5173`.
 
 You can also open `index.html` directly in a browser.
 
+## Live preview
+
+GitHub Pages deploys the static app from `main` using `.github/workflows/pages.yml`.
+
+Live URL:
+
+```text
+https://jdescooper.github.io/sales-tracker/
+```
+
 ## What is included
 
 - `index.html`: working single-page CRM prototype with local sample data and CSV exports.
