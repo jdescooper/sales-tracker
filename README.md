@@ -1,8 +1,8 @@
 # CIS Lead CRM
 
-A lightweight, forkable starter for the Cooper Installation Services lead-to-revenue CRM.
+This repo is a GitHub-ready starter for the Cooper Installation Services lead-to-revenue CRM.
 
-This version replaces the unused opportunity board with a manual-aligned inbound lead pipeline. It tracks assigned leads, quote amounts, quote sent dates, won/lost outcomes, potential revenue, realized revenue, and a leadership CSV export by rep.
+The pipeline is based on the CIS Sales-to-Install Operations Manual, not the older opportunity board. It tracks inbound leads assigned to reps, quote amounts, quote sent dates, won/lost outcomes, potential revenue, realized revenue, and an exportable leadership report.
 
 ## Pipeline stages
 
@@ -13,23 +13,27 @@ This version replaces the unused opportunity board with a manual-aligned inbound
 5. Install & Close-Out
 6. Lost / Cancelled
 
-Micro-steps like contacted, scheduled, ran, follow-up, docs signed, payment cleared, and closeout requested are fields or notes, not pipeline columns.
+Micro-statuses like scheduled, contacted, ran, follow-up, and payment cleared are captured as fields or activity notes. They are not separate pipeline columns.
 
 ## Run locally
 
-This starter is dependency-free.
+This first version has no build step and no package dependencies.
 
 ```bash
-node scripts/serve.mjs
+npm run dev
 ```
 
-Then open `http://localhost:5173`.
+Then open:
 
-You can also open `index.html` directly in a browser.
+```text
+http://localhost:5173
+```
+
+You can also open `index.html` directly in a browser for a quick review.
 
 ## Live preview
 
-GitHub Pages deploys the static app from `main` using `.github/workflows/pages.yml`.
+GitHub Pages deploys the static app from the `main` branch at `/ (root)`.
 
 Live URL:
 
@@ -37,17 +41,20 @@ Live URL:
 https://jdescooper.github.io/sales-tracker/
 ```
 
-## What is included
+## Test reporting logic
 
-- `index.html`: working single-page CRM prototype with local sample data and CSV exports.
-- `supabase/migrations/001_lead_pipeline.sql`: Supabase/Postgres schema, RLS policies, and rep revenue report RPC.
-- `docs/pipeline-model.md`: stage definitions and reporting formulas.
-- `tests/reporting.test.mjs`: sanity checks for the leadership reporting math.
+```bash
+node tests/reporting.test.mjs
+```
 
-## Suggested IT integration path
+## Production integration path
 
-1. Apply the Supabase migration in a development project.
-2. Wire auth to your existing profile/role system or keep the provided `profiles` and `user_roles` tables.
-3. Replace browser localStorage in `index.html` with Supabase reads/writes against `crm_leads`.
-4. Expose `get_crm_rep_revenue_report(start, end)` behind an admin/manager report screen.
-5. Add import mapping from HDSC or your lead source into `crm_leads.external_lead_id`.
+- Use `supabase/migrations/001_lead_pipeline.sql` as the database starting point.
+- Wire the front end to Supabase Auth and the `crm_leads` table.
+- Replace local browser storage in `assets/app.js` with Supabase queries.
+- Keep the reporting formulas aligned with `assets/reporting.js` and the SQL function `get_crm_rep_revenue_report`.
+
+## Handoff docs
+
+- `docs/pipeline-model.md` explains the stage model and revenue definitions.
+- `docs/github-handoff.md` explains how to publish or import this repo into GitHub.
