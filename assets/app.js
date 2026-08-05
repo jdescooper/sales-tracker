@@ -12,6 +12,7 @@ const {
 } = window.CISReporting;
 
 const STORAGE_KEY = "cis-lead-crm-v1";
+const BASE_REPS = ["Tyler", "Mary", "Sergio", "Jordan"];
 
 const sampleLeads = [
   {
@@ -125,8 +126,8 @@ const sampleLeads = [
 
 const state = {
   leads: loadLeads(),
-  activeView: "board",
   draggingLeadId: "",
+  editingLeadId: "",
   filters: {
     search: "",
     rep: "all",
@@ -139,6 +140,7 @@ const state = {
 document.addEventListener("DOMContentLoaded", () => {
   hydrateStageOptions();
   bindEvents();
+  clearForm();
   render();
 });
 
@@ -158,35 +160,17 @@ function saveLeads() {
 }
 
 function bindEvents() {
-  document.querySelectorAll(".nav-item, .view-tab").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.activeView = button.dataset.view;
-      render();
-    });
-  });
-
   document.getElementById("lead-form").addEventListener("submit", saveLeadFromForm);
   document.getElementById("clear-form").addEventListener("click", clearForm);
-  document.getElementById("reset-sample").addEventListener("click", () => {
-    state.leads = sampleLeads.map(normalizeLead);
-    saveLeads();
-    clearForm();
-    render();
-  });
+  document.getElementById("reset-sample").addEventListener("click", resetSampleData);
   document.getElementById("export-report").addEventListener("click", exportReportCsv);
+  document.getElementById("export-leads").addEventListener("click", exportLeadsCsv);
 
   ["search-filter", "rep-filter", "stage-filter", "start-filter", "end-filter"].forEach((id) => {
     document.getElementById(id).addEventListener("input", updateFiltersFromControls);
   });
 
   document.body.addEventListener("click", (event) => {
-    const viewButton = event.target.closest("[data-view]");
-    if (viewButton && viewButton.closest("#race-card")) {
-      state.activeView = viewButton.dataset.view;
-      render();
-      return;
-    }
-
     const editButton = event.target.closest("[data-edit-lead]");
     if (editButton) {
       editLead(editButton.dataset.editLead);
@@ -196,13 +180,6 @@ function bindEvents() {
     const deleteButton = event.target.closest("[data-delete-lead]");
     if (deleteButton) {
       deleteLead(deleteButton.dataset.deleteLead);
-      return;
-    }
-
-    const exportLeadsButton = event.target.closest("[data-export-leads]");
-    if (exportLeadsButton) {
-      exportLeadsCsv();
-      return;
     }
   });
 
@@ -221,15 +198,11 @@ function bindEvents() {
 }
 
 function hydrateStageOptions() {
-  const stageSelect = document.getElementById("stage-select");
-  stageSelect.innerHTML = PIPELINE_STAGES.map((stage) => {
-    return `<option value="${stage.id}">${stage.name}</option>`;
-  }).join("");
-
-  const stageFilter = document.getElementById("stage-filter");
-  stageFilter.innerHTML = [
+  const stageOptions = PIPELINE_STAGES.map((stage) => `<option value="${stage.id}">${stage.name}</option>`).join("");
+  document.getElementById("stage-select").innerHTML = stageOptions;
+  document.getElementById("stage-filter").innerHTML = [
     '<option value="all">All stages</option>',
-    ...PIPELINE_STAGES.map((stage) => `<option value="${stage.id}">${stage.name}</option>`)
+    stageOptions
   ].join("");
 }
 
@@ -248,33 +221,36 @@ function filteredLeads() {
 
 function render() {
   const visibleLeads = filteredLeads();
-  renderRepOptions();
+  renderRepControls();
   renderTeamMetrics(visibleLeads);
-  renderRaceCard(visibleLeads);
-  renderViews(visibleLeads);
-  renderNav();
+  renderBoard(visibleLeads);
+  renderReport(visibleLeads);
+  document.getElementById("board-count").textContent = `${visibleLeads.length} ${visibleLeads.length === 1 ? "lead" : "leads"} in view`;
 }
 
-function renderRepOptions() {
-  const select = document.getElementById("rep-filter");
-  const current = select.value || state.filters.rep;
-  const reps = Array.from(new Set(state.leads.map((lead) => lead.repName).filter(Boolean))).sort();
-  select.innerHTML = [
+function renderRepControls() {
+  const reps = Array.from(new Set([...BASE_REPS, ...state.leads.map((lead) => lead.repName).filter(Boolean)])).sort();
+
+  const filter = document.getElementById("rep-filter");
+  const currentFilter = filter.value || state.filters.rep;
+  filter.innerHTML = [
     '<option value="all">All reps</option>',
     ...reps.map((rep) => `<option value="${escapeHtml(rep)}">${escapeHtml(rep)}</option>`)
   ].join("");
-  select.value = reps.includes(current) ? current : "all";
-  state.filters.rep = select.value;
+  filter.value = reps.includes(currentFilter) ? currentFilter : "all";
+  state.filters.rep = filter.value;
+
+  document.getElementById("rep-options").innerHTML = reps.map((rep) => `<option value="${escapeHtml(rep)}"></option>`).join("");
 }
 
 function renderTeamMetrics(leads) {
   const totals = calculateTeamMetrics(leads);
   const metrics = [
-    ["Leads", formatNumber(totals.leadsAssigned), "Assigned in current filter"],
-    ["Quotes Sent", formatNumber(totals.quotesSent), `${formatCurrency(totals.totalQuotedRevenue)} quoted`],
-    ["Open Potential", formatCurrency(totals.openPotentialRevenue), "Quoted, not won or lost"],
+    ["Leads", formatNumber(totals.leadsAssigned), "Assigned"],
+    ["Quotes Sent", formatNumber(totals.quotesSent), formatCurrency(totals.totalQuotedRevenue)],
+    ["Open Potential", formatCurrency(totals.openPotentialRevenue), "Quoted, not decided"],
     ["Won Revenue", formatCurrency(totals.wonRevenue), `${formatPercent(totals.winRate)} win rate`],
-    ["Realized Revenue", formatCurrency(totals.realizedRevenue), "Closed-out final value"],
+    ["Realized", formatCurrency(totals.realizedRevenue), "Closed-out revenue"],
     ["Aging Quotes", formatNumber(totals.agingOpenQuotes), `${formatCurrency(totals.agingOpenQuoteRevenue)} at 8+ days`]
   ];
 
@@ -285,68 +261,6 @@ function renderTeamMetrics(leads) {
       <small>${helper}</small>
     </article>
   `).join("");
-}
-
-function renderRaceCard(leads) {
-  const metrics = calculateRepMetrics(leads).slice(0, 3);
-  const fallback = ["Tyler", "Mary", "Sergio"].map((repName) => ({
-    repName,
-    wonRevenue: 0,
-    realizedRevenue: 0,
-    leadsAssigned: 0
-  }));
-  const rows = metrics.length ? metrics : fallback;
-
-  document.getElementById("race-card").innerHTML = `
-    <div class="race-header">
-      <div>
-        <div class="race-title">
-          <h3>The Race</h3>
-          <span>${rows.map((row) => escapeHtml(row.repName)).join(" - ")}</span>
-        </div>
-        <div class="race-tabs">
-          <button class="is-active" type="button">This week</button>
-          <button type="button">This month</button>
-        </div>
-      </div>
-      <button class="text-button" data-view="report" type="button">Full stats -></button>
-    </div>
-    <div class="race-grid">
-      ${rows.map((row, index) => {
-        const initials = row.repName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-        const value = row.realizedRevenue || row.wonRevenue || row.openPotentialRevenue || 0;
-        return `
-          <article class="race-person ${index === 0 ? "is-leading" : ""}">
-            <span class="race-rank">${index + 1}</span>
-            <span class="race-avatar">${escapeHtml(initials)}</span>
-            <div>
-              <h4>${escapeHtml(row.repName)}</h4>
-              <p>${index === 0 ? "Leading" : `${formatCurrency(value)} tracked`}</p>
-            </div>
-            <div class="race-points">
-              <strong>${formatNumber(row.leadsAssigned)}</strong>
-              <span>leads</span>
-            </div>
-          </article>
-        `;
-      }).join("")}
-    </div>
-  `;
-}
-
-function renderViews(leads) {
-  document.querySelectorAll(".view-pane").forEach((pane) => pane.classList.remove("is-active"));
-  document.getElementById(`${state.activeView}-view`).classList.add("is-active");
-  renderBoard(leads);
-  renderTable(leads);
-  renderReport(leads);
-}
-
-function renderNav() {
-  document.querySelectorAll(".nav-item, .view-tab").forEach((button) => {
-    const isSecondary = button.dataset.secondary === "true";
-    button.classList.toggle("is-active", !isSecondary && button.dataset.view === state.activeView);
-  });
 }
 
 function renderBoard(leads) {
@@ -360,16 +274,16 @@ function renderBoard(leads) {
       ${grouped.map(({ stage, leads: stageLeads }) => {
         const stageRevenue = stageLeads.reduce((sum, lead) => sum + Number(lead.quoteAmount || 0), 0);
         return `
-          <section class="stage-column" data-stage-column="${stage.id}" data-stage-drop="${stage.id}" aria-label="${escapeHtml(stage.name)} drop zone">
+          <section class="stage-column" data-stage-column="${stage.id}" data-stage-drop="${stage.id}" aria-label="${escapeHtml(stage.name)}">
             <div class="stage-heading">
               <div>
-                <h3>${stage.name}</h3>
+                <h3>${escapeHtml(stage.shortName)}</h3>
                 <p>${stageLeads.length} ${stageLeads.length === 1 ? "lead" : "leads"}</p>
               </div>
               <strong>${formatCurrency(stageRevenue)}</strong>
             </div>
             <div class="stage-cards">
-              ${stageLeads.length ? stageLeads.map(renderLeadCard).join("") : '<p class="empty-state">Drop leads here.</p>'}
+              ${stageLeads.length ? stageLeads.map(renderLeadCard).join("") : '<p class="empty-state">No leads</p>'}
             </div>
           </section>
         `;
@@ -379,19 +293,39 @@ function renderBoard(leads) {
 }
 
 function renderLeadCard(lead) {
+  const stage = STAGE_BY_ID[lead.stageId];
+  const outcome = lead.stageId === "lost_cancelled" ? "Lost" : lead.soldDate ? "Won" : "Open";
+  const realized = lead.realizedRevenue || (lead.closedDate ? lead.quoteAmount : 0);
+
   return `
-    <article class="lead-card ${state.draggingLeadId === lead.id ? "is-dragging" : ""}" draggable="true" data-lead-card="${lead.id}" aria-label="${escapeHtml(lead.customerName)} opportunity card" aria-grabbed="${state.draggingLeadId === lead.id ? "true" : "false"}">
+    <article class="lead-card" draggable="true" data-lead-card="${lead.id}" aria-label="${escapeHtml(lead.customerName)}">
       <div class="card-topline">
         <span class="drag-grip" aria-hidden="true">::</span>
         <span>${escapeHtml(lead.externalLeadId)}</span>
-        <span>${escapeHtml(lead.repName)}</span>
+        <span class="rep-pill">${escapeHtml(lead.repName)}</span>
       </div>
-      <h4>${escapeHtml(lead.customerName)}</h4>
-      <p>${escapeHtml(lead.productType || "Product TBD")} ${lead.storeNumber ? `- Store #${escapeHtml(lead.storeNumber)}` : ""}</p>
-      <dl>
-        <div><dt>Quote</dt><dd>${lead.quoteAmount ? formatCurrency(lead.quoteAmount) : "Not sent"}</dd></div>
-        <div><dt>Sent</dt><dd>${lead.quoteSentDate || "Open"}</dd></div>
+
+      <div>
+        <h4>${escapeHtml(lead.customerName)}</h4>
+        <p>${escapeHtml(lead.address || "Location TBD")}</p>
+      </div>
+
+      <dl class="card-facts">
+        <div><dt>Quote</dt><dd>${lead.quoteAmount ? formatCurrency(lead.quoteAmount) : "Not quoted"}</dd></div>
+        <div><dt>Quote sent</dt><dd>${lead.quoteSentDate || "-"}</dd></div>
+        <div><dt>Outcome</dt><dd>${outcome}</dd></div>
+        <div><dt>Realized</dt><dd>${realized ? formatCurrency(realized) : "-"}</dd></div>
       </dl>
+
+      <label class="card-stage">
+        Stage
+        <select data-stage-change="${lead.id}" aria-label="Stage for ${escapeHtml(lead.customerName)}">
+          ${PIPELINE_STAGES.map((option) => `
+            <option value="${option.id}" ${option.id === stage.id ? "selected" : ""}>${escapeHtml(option.shortName)}</option>
+          `).join("")}
+        </select>
+      </label>
+
       <div class="card-actions">
         <button class="text-button" data-edit-lead="${lead.id}" type="button">Edit</button>
         <button class="text-button danger" data-delete-lead="${lead.id}" type="button">Delete</button>
@@ -400,106 +334,58 @@ function renderLeadCard(lead) {
   `;
 }
 
-function renderTable(leads) {
-  document.getElementById("table-view").innerHTML = `
-    <div class="table-toolbar">
-      <p>${leads.length} leads in view</p>
-      <button class="button secondary" data-export-leads type="button">Export Leads CSV</button>
+function renderReport(leads) {
+  const metrics = calculateRepMetrics(leads);
+  const totals = calculateTeamMetrics(leads);
+
+  document.getElementById("report-view").innerHTML = `
+    <div class="report-summary">
+      <p><strong>${formatNumber(totals.leadsAssigned)}</strong><span>Leads</span></p>
+      <p><strong>${formatNumber(totals.quotesSent)}</strong><span>Quotes</span></p>
+      <p><strong>${formatCurrency(totals.openPotentialRevenue)}</strong><span>Open potential</span></p>
+      <p><strong>${formatCurrency(totals.realizedRevenue)}</strong><span>Realized</span></p>
     </div>
+
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Lead</th>
-            <th>Customer</th>
             <th>Rep</th>
-            <th>Stage</th>
-            <th>Received</th>
-            <th>Quote Sent</th>
-            <th>Quote</th>
-            <th>Outcome</th>
-            <th></th>
+            <th>Leads</th>
+            <th>Ran</th>
+            <th>Quotes</th>
+            <th>Quoted $</th>
+            <th>Open Potential</th>
+            <th>Won Jobs</th>
+            <th>Lost Jobs</th>
+            <th>Win Rate</th>
+            <th>Won $</th>
+            <th>Realized $</th>
+            <th>Avg Days to Quote</th>
+            <th>Aging Quotes</th>
           </tr>
         </thead>
         <tbody>
-          ${leads.map((lead) => `
+          ${metrics.map((row) => `
             <tr>
-              <td>${escapeHtml(lead.externalLeadId)}</td>
-              <td>${escapeHtml(lead.customerName)}</td>
-              <td>${escapeHtml(lead.repName)}</td>
-              <td>${escapeHtml(STAGE_BY_ID[lead.stageId].shortName)}</td>
-              <td>${lead.dateReceived || ""}</td>
-              <td>${lead.quoteSentDate || ""}</td>
-              <td>${lead.quoteAmount ? formatCurrency(lead.quoteAmount) : ""}</td>
-              <td>${lead.lostReason ? escapeHtml(lead.lostReason) : lead.soldDate ? "Won" : ""}</td>
-              <td><button class="text-button" data-edit-lead="${lead.id}" type="button">Edit</button></td>
+              <td>${escapeHtml(row.repName)}</td>
+              <td>${formatNumber(row.leadsAssigned)}</td>
+              <td>${formatNumber(row.leadsRun)}</td>
+              <td>${formatNumber(row.quotesSent)}</td>
+              <td>${formatCurrency(row.totalQuotedRevenue)}</td>
+              <td>${formatCurrency(row.openPotentialRevenue)}</td>
+              <td>${formatNumber(row.wonJobs)}</td>
+              <td>${formatNumber(row.lostJobs)}</td>
+              <td>${formatPercent(row.winRate)}</td>
+              <td>${formatCurrency(row.wonRevenue)}</td>
+              <td>${formatCurrency(row.realizedRevenue)}</td>
+              <td>${formatNumber(row.averageDaysToQuote, 1)}</td>
+              <td>${formatNumber(row.agingOpenQuotes)}</td>
             </tr>
           `).join("")}
         </tbody>
       </table>
     </div>
-  `;
-}
-
-function renderReport(leads) {
-  const metrics = calculateRepMetrics(leads);
-  const totals = calculateTeamMetrics(leads);
-  document.getElementById("report-view").innerHTML = `
-    <section class="report-sheet" id="print-report">
-      <div class="report-header">
-        <div>
-          <p class="eyebrow">Leadership export</p>
-          <h3>CIS Lead-to-Revenue Summary</h3>
-        </div>
-        <button class="button secondary" onclick="window.print()" type="button">Print Report</button>
-      </div>
-      <div class="report-summary">
-        <p><strong>${formatNumber(totals.leadsAssigned)}</strong> leads assigned</p>
-        <p><strong>${formatNumber(totals.quotesSent)}</strong> quotes sent</p>
-        <p><strong>${formatCurrency(totals.openPotentialRevenue)}</strong> open potential</p>
-        <p><strong>${formatCurrency(totals.realizedRevenue)}</strong> realized revenue</p>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Rep</th>
-              <th>Leads</th>
-              <th>Ran</th>
-              <th>Quotes</th>
-              <th>Quoted $</th>
-              <th>Open Potential</th>
-              <th>Won Jobs</th>
-              <th>Lost Jobs</th>
-              <th>Win Rate</th>
-              <th>Won $</th>
-              <th>Realized $</th>
-              <th>Avg Days to Quote</th>
-              <th>Aging Quotes</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${metrics.map((row) => `
-              <tr>
-                <td>${escapeHtml(row.repName)}</td>
-                <td>${formatNumber(row.leadsAssigned)}</td>
-                <td>${formatNumber(row.leadsRun)}</td>
-                <td>${formatNumber(row.quotesSent)}</td>
-                <td>${formatCurrency(row.totalQuotedRevenue)}</td>
-                <td>${formatCurrency(row.openPotentialRevenue)}</td>
-                <td>${formatNumber(row.wonJobs)}</td>
-                <td>${formatNumber(row.lostJobs)}</td>
-                <td>${formatPercent(row.winRate)}</td>
-                <td>${formatCurrency(row.wonRevenue)}</td>
-                <td>${formatCurrency(row.realizedRevenue)}</td>
-                <td>${formatNumber(row.averageDaysToQuote, 1)}</td>
-                <td>${formatNumber(row.agingOpenQuotes)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    </section>
   `;
 }
 
@@ -514,6 +400,8 @@ function saveLeadFromForm(event) {
     realizedRevenue: data.realizedRevenue
   });
 
+  applyStageDefaults(lead);
+
   const validationMessage = validateLead(lead);
   if (validationMessage) {
     showStatus(validationMessage, true);
@@ -526,6 +414,7 @@ function saveLeadFromForm(event) {
   } else {
     state.leads.unshift(lead);
   }
+
   saveLeads();
   clearForm();
   showStatus("Saved", false);
@@ -534,14 +423,12 @@ function saveLeadFromForm(event) {
 
 function validateLead(lead) {
   const stageSort = STAGE_BY_ID[lead.stageId].sort;
-  if (stageSort >= STAGE_BY_ID.quote_customer_decision.sort && lead.stageId !== "lost_cancelled" && !lead.quoteAmount) {
-    return "Quote amount is required once a lead reaches quote or later.";
+  const quoteStageSort = STAGE_BY_ID.quote_customer_decision.sort;
+  if (stageSort >= quoteStageSort && lead.stageId !== "lost_cancelled" && !lead.quoteAmount) {
+    return "Quote amount is required once a lead reaches Quote or later.";
   }
-  if (stageSort >= STAGE_BY_ID.quote_customer_decision.sort && lead.stageId !== "lost_cancelled" && !lead.quoteSentDate) {
-    return "Quote sent date is required once a lead reaches quote or later.";
-  }
-  if (lead.stageId === "lost_cancelled" && !lead.lostReason) {
-    return "Choose a lost reason before closing the lead.";
+  if (stageSort >= quoteStageSort && lead.stageId !== "lost_cancelled" && !lead.quoteSentDate) {
+    return "Quote sent date is required once a lead reaches Quote or later.";
   }
   return "";
 }
@@ -549,11 +436,16 @@ function validateLead(lead) {
 function editLead(id) {
   const lead = state.leads.find((item) => item.id === id);
   if (!lead) return;
+
   const form = document.getElementById("lead-form");
   Object.entries(lead).forEach(([key, value]) => {
     if (form.elements[key]) form.elements[key].value = value;
   });
+
+  state.editingLeadId = id;
+  document.getElementById("lead-form-title").textContent = "Edit lead";
   document.querySelector(".lead-form-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+  showStatus(`Editing ${lead.externalLeadId || lead.customerName}`, false);
 }
 
 function deleteLead(id) {
@@ -563,31 +455,56 @@ function deleteLead(id) {
   if (!confirmed) return;
   state.leads = state.leads.filter((item) => item.id !== id);
   saveLeads();
+  if (state.editingLeadId === id) clearForm();
   render();
 }
 
 function updateLeadStage(id, stageId) {
   const lead = state.leads.find((item) => item.id === id);
   if (!lead || !STAGE_BY_ID[stageId]) return;
-  const previousStageId = lead.stageId;
-  lead.stageId = stageId;
-  if (stageId === "sold_payment_gate" && !lead.soldDate) lead.soldDate = today();
-  if (stageId === "install_closeout" && !lead.closedDate && lead.soldDate) lead.realizedRevenue = lead.realizedRevenue || lead.quoteAmount;
-  if (stageId === "lost_cancelled" && !lead.lostReason) lead.lostReason = "No Longer Interested";
+
+  const nextLead = normalizeLead({ ...lead, stageId });
+  applyStageDefaults(nextLead);
+  const validationMessage = validateLead(nextLead);
+  if (validationMessage) {
+    editLead(id);
+    document.getElementById("stage-select").value = stageId;
+    showStatus(validationMessage, true);
+    render();
+    return;
+  }
+
+  Object.assign(lead, nextLead);
   saveLeads();
+  showStatus(`Moved to ${STAGE_BY_ID[stageId].name}`, false);
   render();
-  if (previousStageId !== stageId) showStatus(`Moved to ${STAGE_BY_ID[stageId].name}`, false);
+}
+
+function applyStageDefaults(lead) {
+  if (lead.stageId === "sold_payment_gate" && !lead.soldDate) {
+    lead.soldDate = today();
+  }
+  if (lead.stageId === "install_closeout") {
+    if (!lead.soldDate) lead.soldDate = today();
+    if (!lead.closedDate) lead.closedDate = today();
+    if (!lead.realizedRevenue) lead.realizedRevenue = lead.quoteAmount;
+  }
+  if (lead.stageId === "lost_cancelled") {
+    lead.soldDate = "";
+    lead.closedDate = "";
+    lead.realizedRevenue = 0;
+  }
 }
 
 function handleDragStart(event) {
   const card = event.target.closest("[data-lead-card]");
   if (!card) return;
+  if (event.target.closest("button, select, input, textarea")) return;
+
   state.draggingLeadId = card.dataset.leadCard;
   event.dataTransfer.effectAllowed = "move";
   event.dataTransfer.setData("text/plain", state.draggingLeadId);
-  window.requestAnimationFrame(() => {
-    card.classList.add("is-dragging");
-  });
+  window.requestAnimationFrame(() => card.classList.add("is-dragging"));
 }
 
 function handleDragOver(event) {
@@ -601,12 +518,13 @@ function handleDragOver(event) {
 function handleDragLeave(event) {
   const dropZone = event.target.closest("[data-stage-drop]");
   if (!dropZone || dropZone.contains(event.relatedTarget)) return;
-  dropZone.closest(".stage-column")?.classList.remove("is-drag-over");
+  dropZone.classList.remove("is-drag-over");
 }
 
 function handleDrop(event) {
   const dropZone = event.target.closest("[data-stage-drop]");
   if (!dropZone) return;
+
   event.preventDefault();
   const leadId = event.dataTransfer.getData("text/plain") || state.draggingLeadId;
   const stageId = dropZone.dataset.stageDrop;
@@ -616,14 +534,13 @@ function handleDrop(event) {
 
 function handleDragEnd() {
   clearDropState();
-  render();
 }
 
 function setActiveDropZone(dropZone) {
   document.querySelectorAll(".stage-column.is-drag-over").forEach((column) => {
-    if (column !== dropZone.closest(".stage-column")) column.classList.remove("is-drag-over");
+    if (column !== dropZone) column.classList.remove("is-drag-over");
   });
-  dropZone.closest(".stage-column")?.classList.add("is-drag-over");
+  dropZone.classList.add("is-drag-over");
 }
 
 function clearDropState() {
@@ -639,6 +556,16 @@ function clearForm() {
   form.elements.id.value = "";
   form.elements.dateReceived.value = today();
   form.elements.stageId.value = "intake_measure_prep";
+  state.editingLeadId = "";
+  document.getElementById("lead-form-title").textContent = "Add lead";
+}
+
+function resetSampleData() {
+  state.leads = sampleLeads.map(normalizeLead);
+  saveLeads();
+  clearForm();
+  showStatus("Sample data restored", false);
+  render();
 }
 
 function exportReportCsv() {
@@ -708,10 +635,11 @@ function showStatus(message, isError) {
   const status = document.getElementById("form-status");
   status.textContent = message;
   status.classList.toggle("is-error", Boolean(isError));
-  window.setTimeout(() => {
+  window.clearTimeout(showStatus.timeout);
+  showStatus.timeout = window.setTimeout(() => {
     status.textContent = "";
     status.classList.remove("is-error");
-  }, 3000);
+  }, 3500);
 }
 
 function escapeHtml(value) {
@@ -722,5 +650,3 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
-
-clearForm();
