@@ -1,6 +1,6 @@
-# CIS Lead CRM
+# CIS Lead Pipeline
 
-This repo is a GitHub-ready starter for the Cooper Installation Services lead-to-revenue CRM.
+This repo is a GitHub-ready starter for the Cooper Installation Services lead-to-revenue pipeline.
 
 The pipeline is based on the CIS Sales-to-Install Operations Manual, not the older opportunity board. It tracks inbound leads assigned to reps, quote amounts, quote sent dates, won/lost outcomes, potential revenue, realized revenue, and an exportable leadership report.
 
