@@ -3,263 +3,214 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>CIS Lead CRM</title>
-    <meta name="description" content="Lead-to-revenue CRM for Cooper Installation Services.">
+    <title>CIS Lead Pipeline</title>
+    <meta name="description" content="Lead-to-revenue pipeline for Cooper Installation Services.">
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="sidebar">
-        <div class="brand-card" aria-label="Cooper Installation Services">
-          <div class="brand-cis">CIS</div>
-          <div class="brand-copy">
+    <div class="pipeline-shell">
+      <header class="app-header">
+        <div class="brand-mark" aria-label="Cooper Installation Services">
+          <span>CIS</span>
+          <div>
             <strong>COOPER</strong>
-            <span>INSTALLATION</span>
-            <small>S E R V I C E S</small>
+            <small>INSTALLATION SERVICES</small>
           </div>
         </div>
 
-        <nav class="nav-list" aria-label="Primary">
-          <button class="nav-item is-active" data-view="board" type="button">
-            <span class="nav-icon grid-icon" aria-hidden="true"></span>
-            <span>Dashboard</span>
-            <strong class="nav-badge">22</strong>
-          </button>
-          <button class="nav-item" data-view="board" data-secondary="true" type="button">
-            <span class="nav-icon pipeline-icon" aria-hidden="true"></span>
-            <span>Pipeline</span>
-          </button>
-          <button class="nav-item" data-view="table" type="button">
-            <span class="nav-icon list-icon" aria-hidden="true"></span>
-            <span>Lead List</span>
-          </button>
-          <button class="nav-item" data-view="report" type="button">
-            <span class="nav-icon stats-icon" aria-hidden="true"></span>
-            <span>Leadership Report</span>
-          </button>
-        </nav>
-
-        <div class="sidebar-spacer"></div>
-
-        <div class="sidebar-user">
-          <div class="user-avatar">JD</div>
-          <div>
-            <strong>Jordan Desbien</strong>
-            <span>Admin</span>
-          </div>
+        <div class="header-title">
+          <p class="eyebrow">Sales pipeline</p>
+          <h1>CIS Lead Pipeline</h1>
         </div>
-        <button class="signout-button" type="button">
-          <span class="nav-icon signout-icon" aria-hidden="true"></span>
-          <span>Sign out</span>
-        </button>
-      </aside>
 
-      <main class="main">
-        <section class="progress-strip" aria-label="Today's progress">
-          <div class="progress-rings" aria-hidden="true">
-            <span></span>
-          </div>
-          <div>
-            <p>Today's progress</p>
-            <div class="progress-meta">
-              <span class="mini-chip">0</span>
-              <strong>0 pts</strong>
-            </div>
-          </div>
-          <span class="progress-arrow">&rsaquo;</span>
+        <div class="header-actions">
+          <button class="button" id="export-report" type="button">Export Leadership CSV</button>
+          <button class="button secondary" id="export-leads" type="button">Export Leads CSV</button>
+          <button class="button ghost" id="reset-sample" type="button">Reset Sample</button>
+        </div>
+      </header>
+
+      <main class="pipeline-main">
+        <section class="metrics-grid" id="team-metrics" aria-label="Team pipeline totals"></section>
+
+        <section class="filters" aria-label="Pipeline filters">
+          <label>
+            Search
+            <input id="search-filter" placeholder="Customer, lead ID, store, address">
+          </label>
+          <label>
+            Rep
+            <select id="rep-filter"></select>
+          </label>
+          <label>
+            Stage
+            <select id="stage-filter"></select>
+          </label>
+          <label>
+            Received from
+            <input id="start-filter" type="date">
+          </label>
+          <label>
+            Received to
+            <input id="end-filter" type="date">
+          </label>
         </section>
 
-        <section class="dashboard-hero">
-          <div>
-            <h2>Welcome back, Jordan</h2>
-            <p>Lead activity, pipeline health, and rep revenue performance.</p>
-          </div>
-          <div class="hero-actions">
-            <button class="alert-pill" type="button">
-              <span aria-hidden="true"></span>
-              22 due now
-              <strong>22</strong>
-            </button>
-            <button class="date-pill" type="button">Last 30 days</button>
-            <button class="button" id="export-report" type="button">Export Report CSV</button>
-          </div>
-        </section>
-
-        <section class="race-card" id="race-card" aria-label="Rep revenue race"></section>
-
-        <section class="view-tabs" aria-label="Dashboard views">
-          <button class="view-tab is-active" data-view="board" type="button">Pipeline</button>
-          <button class="view-tab" data-view="table" type="button">Lead List</button>
-          <button class="view-tab" data-view="report" type="button">Leadership Report</button>
-        </section>
-
-        <section class="metrics-grid" id="team-metrics" aria-label="Team metrics"></section>
-
-        <section class="content-panel">
-          <div class="content-card-heading">
-            <div>
-              <p class="eyebrow">Inbound lead tracking</p>
-              <h3>Lead-to-revenue workspace</h3>
-            </div>
-            <div class="topbar-actions">
-              <button class="button secondary" id="reset-sample" type="button">Reset Sample</button>
-            </div>
-          </div>
-
-          <section class="workbench">
-            <section class="lead-form-panel" aria-labelledby="lead-form-title">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow">Lead entry</p>
-                  <h3 id="lead-form-title">Add or update lead</h3>
-                </div>
-                <button class="button ghost" id="clear-form" type="button">Clear</button>
+        <section class="pipeline-layout">
+          <aside class="lead-form-panel" aria-labelledby="lead-form-title">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Lead details</p>
+                <h2 id="lead-form-title">Add lead</h2>
               </div>
-              <form id="lead-form" class="lead-form">
-                <input type="hidden" name="id">
+              <button class="button ghost small" id="clear-form" type="button">Clear</button>
+            </div>
+
+            <form id="lead-form" class="lead-form">
+              <input type="hidden" name="id">
+
+              <label>
+                Lead ID
+                <input name="externalLeadId" placeholder="HDSC or PO number" required>
+              </label>
+
+              <label>
+                Customer
+                <input name="customerName" placeholder="Customer or company" required>
+              </label>
+
+              <label>
+                Assigned Rep
+                <input name="repName" list="rep-options" placeholder="Rep name" required>
+                <datalist id="rep-options"></datalist>
+              </label>
+
+              <div class="form-row">
                 <label>
-                  Lead ID
-                  <input name="externalLeadId" placeholder="HDSC or PO number" required>
-                </label>
-                <label>
-                  Customer
-                  <input name="customerName" placeholder="Customer or company" required>
-                </label>
-                <label>
-                  Assigned Rep
-                  <select name="repName" required>
-                    <option value="">Select rep</option>
-                    <option>Tyler</option>
-                    <option>Mary</option>
-                    <option>Sergio</option>
-                    <option>Jordan</option>
+                  Source
+                  <select name="source">
+                    <option>HDSC</option>
+                    <option>Home Depot Store</option>
+                    <option>Phone</option>
+                    <option>Email</option>
+                    <option>Referral</option>
                   </select>
                 </label>
-                <div class="form-row">
-                  <label>
-                    Source
-                    <select name="source">
-                      <option>HDSC</option>
-                      <option>Home Depot Store</option>
-                      <option>Phone</option>
-                      <option>Email</option>
-                      <option>Referral</option>
-                    </select>
-                  </label>
-                  <label>
-                    Path
-                    <select name="jobPath">
-                      <option>SFI</option>
-                      <option>F&I</option>
-                    </select>
-                  </label>
-                </div>
                 <label>
-                  Job location
-                  <input name="address" placeholder="Street, city, state">
-                </label>
-                <div class="form-row">
-                  <label>
-                    Store #
-                    <input name="storeNumber" placeholder="1234">
-                  </label>
-                  <label>
-                    Product
-                    <input name="productType" placeholder="Carpet, LVP, tile">
-                  </label>
-                </div>
-                <label>
-                  Pipeline stage
-                  <select name="stageId" id="stage-select"></select>
-                </label>
-                <div class="form-row">
-                  <label>
-                    Received
-                    <input name="dateReceived" type="date" required>
-                  </label>
-                  <label>
-                    Measure Done
-                    <input name="measureCompletedDate" type="date">
-                  </label>
-                </div>
-                <div class="form-row">
-                  <label>
-                    Quote Amount
-                    <input name="quoteAmount" type="number" min="0" step="0.01" placeholder="0.00">
-                  </label>
-                  <label>
-                    Quote Sent
-                    <input name="quoteSentDate" type="date">
-                  </label>
-                </div>
-                <div class="form-row">
-                  <label>
-                    Won Date
-                    <input name="soldDate" type="date">
-                  </label>
-                  <label>
-                    Closed Date
-                    <input name="closedDate" type="date">
-                  </label>
-                </div>
-                <div class="form-row">
-                  <label>
-                    Final Revenue
-                    <input name="realizedRevenue" type="number" min="0" step="0.01" placeholder="0.00">
-                  </label>
-                  <label>
-                    Lost Reason
-                    <select name="lostReason">
-                      <option value="">None</option>
-                      <option>No Contact Made</option>
-                      <option>No Longer Interested</option>
-                      <option>Out of Scope</option>
-                      <option>Price</option>
-                      <option>Cancelled</option>
-                      <option>Duplicate</option>
-                    </select>
-                  </label>
-                </div>
-                <label>
-                  Notes
-                  <textarea name="notes" rows="4" placeholder="Scope, follow-up plan, payment notes, or closeout blockers"></textarea>
-                </label>
-                <div class="form-actions">
-                  <button class="button" type="submit">Save Lead</button>
-                  <span class="form-status" id="form-status" role="status"></span>
-                </div>
-              </form>
-            </section>
-
-            <section class="pipeline-panel">
-              <div class="filters" aria-label="Filters">
-                <label>
-                  Search
-                  <input id="search-filter" placeholder="Customer, lead ID, store, address">
-                </label>
-                <label>
-                  Rep
-                  <select id="rep-filter"></select>
-                </label>
-                <label>
-                  Stage
-                  <select id="stage-filter"></select>
-                </label>
-                <label>
-                  Received from
-                  <input id="start-filter" type="date">
-                </label>
-                <label>
-                  Received to
-                  <input id="end-filter" type="date">
+                  Path
+                  <select name="jobPath">
+                    <option>SFI</option>
+                    <option>F&I</option>
+                  </select>
                 </label>
               </div>
 
-              <div id="board-view" class="view-pane is-active"></div>
-              <div id="table-view" class="view-pane"></div>
-              <div id="report-view" class="view-pane"></div>
-            </section>
+              <label>
+                Job location
+                <input name="address" placeholder="Street, city, state">
+              </label>
+
+              <div class="form-row">
+                <label>
+                  Store #
+                  <input name="storeNumber" placeholder="1234">
+                </label>
+                <label>
+                  Product
+                  <input name="productType" placeholder="Carpet, LVP, tile">
+                </label>
+              </div>
+
+              <label>
+                Pipeline stage
+                <select name="stageId" id="stage-select"></select>
+              </label>
+
+              <div class="form-row">
+                <label>
+                  Received
+                  <input name="dateReceived" type="date" required>
+                </label>
+                <label>
+                  Measure Done
+                  <input name="measureCompletedDate" type="date">
+                </label>
+              </div>
+
+              <div class="form-row">
+                <label>
+                  Quote Amount
+                  <input name="quoteAmount" type="number" min="0" step="0.01" placeholder="0.00">
+                </label>
+                <label>
+                  Quote Sent
+                  <input name="quoteSentDate" type="date">
+                </label>
+              </div>
+
+              <div class="form-row">
+                <label>
+                  Won Date
+                  <input name="soldDate" type="date">
+                </label>
+                <label>
+                  Closed Date
+                  <input name="closedDate" type="date">
+                </label>
+              </div>
+
+              <div class="form-row">
+                <label>
+                  Final Revenue
+                  <input name="realizedRevenue" type="number" min="0" step="0.01" placeholder="0.00">
+                </label>
+                <label>
+                  Lost Reason
+                  <select name="lostReason">
+                    <option value="">None</option>
+                    <option>No Contact Made</option>
+                    <option>No Longer Interested</option>
+                    <option>Out of Scope</option>
+                    <option>Price</option>
+                    <option>Cancelled</option>
+                    <option>Duplicate</option>
+                  </select>
+                </label>
+              </div>
+
+              <label>
+                Notes
+                <textarea name="notes" rows="4" placeholder="Scope, follow-up, payment notes, or closeout blockers"></textarea>
+              </label>
+
+              <div class="form-actions">
+                <button class="button" type="submit">Save Lead</button>
+                <span class="form-status" id="form-status" role="status"></span>
+              </div>
+            </form>
+          </aside>
+
+          <section class="board-panel" aria-labelledby="board-title">
+            <div class="board-heading">
+              <div>
+                <p class="eyebrow">Kanban board</p>
+                <h2 id="board-title">Pipeline</h2>
+              </div>
+              <p id="board-count"></p>
+            </div>
+            <div id="board-view"></div>
           </section>
+        </section>
+
+        <section class="report-panel" aria-labelledby="report-title">
+          <div class="report-heading">
+            <div>
+              <p class="eyebrow">Leadership report</p>
+              <h2 id="report-title">Revenue by rep</h2>
+            </div>
+            <button class="button secondary" onclick="window.print()" type="button">Print</button>
+          </div>
+          <div id="report-view"></div>
         </section>
       </main>
     </div>
