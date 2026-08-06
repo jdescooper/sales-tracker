@@ -160,8 +160,14 @@ function saveLeads() {
 }
 
 function bindEvents() {
+  document.getElementById("new-lead").addEventListener("click", () => {
+    clearForm();
+    openLeadModal();
+  });
   document.getElementById("lead-form").addEventListener("submit", saveLeadFromForm);
   document.getElementById("clear-form").addEventListener("click", clearForm);
+  document.getElementById("close-modal").addEventListener("click", closeLeadModal);
+  document.getElementById("cancel-modal").addEventListener("click", closeLeadModal);
   document.getElementById("reset-sample").addEventListener("click", resetSampleData);
   document.getElementById("export-report").addEventListener("click", exportReportCsv);
   document.getElementById("export-leads").addEventListener("click", exportLeadsCsv);
@@ -188,6 +194,14 @@ function bindEvents() {
     if (stageSelect) {
       updateLeadStage(stageSelect.dataset.stageChange, stageSelect.value);
     }
+  });
+
+  document.getElementById("lead-modal").addEventListener("click", (event) => {
+    if (event.target.id === "lead-modal") closeLeadModal();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && isLeadModalOpen()) closeLeadModal();
   });
 
   document.body.addEventListener("dragstart", handleDragStart);
@@ -418,6 +432,7 @@ function saveLeadFromForm(event) {
   saveLeads();
   clearForm();
   showStatus("Saved", false);
+  closeLeadModal();
   render();
 }
 
@@ -444,7 +459,7 @@ function editLead(id) {
 
   state.editingLeadId = id;
   document.getElementById("lead-form-title").textContent = "Edit lead";
-  document.querySelector(".lead-form-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+  openLeadModal();
   showStatus(`Editing ${lead.externalLeadId || lead.customerName}`, false);
 }
 
@@ -557,7 +572,25 @@ function clearForm() {
   form.elements.dateReceived.value = today();
   form.elements.stageId.value = "intake_measure_prep";
   state.editingLeadId = "";
-  document.getElementById("lead-form-title").textContent = "Add lead";
+  document.getElementById("lead-form-title").textContent = "New lead";
+}
+
+function openLeadModal() {
+  const modal = document.getElementById("lead-modal");
+  modal.hidden = false;
+  document.body.classList.add("has-modal");
+  window.setTimeout(() => {
+    document.querySelector('#lead-form input[name="externalLeadId"]')?.focus();
+  }, 0);
+}
+
+function closeLeadModal() {
+  document.getElementById("lead-modal").hidden = true;
+  document.body.classList.remove("has-modal");
+}
+
+function isLeadModalOpen() {
+  return !document.getElementById("lead-modal").hidden;
 }
 
 function resetSampleData() {
@@ -633,12 +666,22 @@ function today() {
 
 function showStatus(message, isError) {
   const status = document.getElementById("form-status");
-  status.textContent = message;
-  status.classList.toggle("is-error", Boolean(isError));
+  const toast = document.getElementById("app-status");
+  if (status) {
+    status.textContent = message;
+    status.classList.toggle("is-error", Boolean(isError));
+  }
+  toast.textContent = message;
+  toast.classList.toggle("is-error", Boolean(isError));
+  toast.classList.add("is-visible");
   window.clearTimeout(showStatus.timeout);
   showStatus.timeout = window.setTimeout(() => {
-    status.textContent = "";
-    status.classList.remove("is-error");
+    if (status) {
+      status.textContent = "";
+      status.classList.remove("is-error");
+    }
+    toast.textContent = "";
+    toast.classList.remove("is-visible", "is-error");
   }, 3500);
 }
 
