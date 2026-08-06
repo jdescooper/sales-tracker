@@ -11,118 +11,7 @@ const {
   toCsv
 } = window.CISReporting;
 
-const STORAGE_KEY = "cis-lead-crm-v1";
-const BASE_REPS = ["Tyler", "Mary", "Sergio", "Jordan"];
-
-const sampleLeads = [
-  {
-    id: "lead-001",
-    externalLeadId: "F10482901",
-    source: "HDSC",
-    jobPath: "SFI",
-    customerName: "Northview Charter School",
-    repName: "Tyler",
-    address: "Fort Worth, TX",
-    storeNumber: "6512",
-    productType: "Carpet tile",
-    stageId: "quote_customer_decision",
-    dateReceived: "2026-07-20",
-    measureCompletedDate: "2026-07-23",
-    quoteAmount: 18450,
-    quoteSentDate: "2026-07-25",
-    notes: "Board review expected this week."
-  },
-  {
-    id: "lead-002",
-    externalLeadId: "F10483277",
-    source: "HDSC",
-    jobPath: "F&I",
-    customerName: "Mesa Retail Group",
-    repName: "Mary",
-    address: "Plano, TX",
-    storeNumber: "5401",
-    productType: "LVP",
-    stageId: "sold_payment_gate",
-    dateReceived: "2026-07-18",
-    measureCompletedDate: "2026-07-22",
-    quoteAmount: 32600,
-    quoteSentDate: "2026-07-24",
-    soldDate: "2026-07-29",
-    notes: "Agreement signed. Payment link sent."
-  },
-  {
-    id: "lead-003",
-    externalLeadId: "F10484109",
-    source: "Home Depot Store",
-    jobPath: "SFI",
-    customerName: "Grace Fellowship Hall",
-    repName: "Sergio",
-    address: "Denton, TX",
-    storeNumber: "5890",
-    productType: "Sheet vinyl",
-    stageId: "measure_management",
-    dateReceived: "2026-07-28",
-    measureCompletedDate: "",
-    quoteAmount: 0,
-    quoteSentDate: "",
-    notes: "HDMS measure requested."
-  },
-  {
-    id: "lead-004",
-    externalLeadId: "F10485522",
-    source: "HDSC",
-    jobPath: "SFI",
-    customerName: "Riverside Office Suites",
-    repName: "Tyler",
-    address: "Arlington, TX",
-    storeNumber: "5286",
-    productType: "Broadloom",
-    stageId: "install_closeout",
-    dateReceived: "2026-07-05",
-    measureCompletedDate: "2026-07-09",
-    quoteAmount: 42125,
-    quoteSentDate: "2026-07-11",
-    soldDate: "2026-07-16",
-    closedDate: "2026-08-01",
-    realizedRevenue: 42125,
-    notes: "Customer approval filed. No balance remains."
-  },
-  {
-    id: "lead-005",
-    externalLeadId: "F10486218",
-    source: "Referral",
-    jobPath: "SFI",
-    customerName: "Harbor Childcare Center",
-    repName: "Mary",
-    address: "Dallas, TX",
-    storeNumber: "0562",
-    productType: "Rubber flooring",
-    stageId: "lost_cancelled",
-    dateReceived: "2026-07-10",
-    measureCompletedDate: "2026-07-14",
-    quoteAmount: 21900,
-    quoteSentDate: "2026-07-16",
-    lostReason: "Price",
-    notes: "Customer selected a lower bid."
-  },
-  {
-    id: "lead-006",
-    externalLeadId: "F10487344",
-    source: "HDSC",
-    jobPath: "F&I",
-    customerName: "Oakline Property Management",
-    repName: "Sergio",
-    address: "Irving, TX",
-    storeNumber: "5417",
-    productType: "Carpet",
-    stageId: "intake_measure_prep",
-    dateReceived: "2026-08-02",
-    measureCompletedDate: "",
-    quoteAmount: 0,
-    quoteSentDate: "",
-    notes: "Confirm access contact before scheduling."
-  }
-];
+const STORAGE_KEY = "cis-lead-crm-v2";
 
 const state = {
   leads: loadLeads(),
@@ -147,11 +36,11 @@ document.addEventListener("DOMContentLoaded", () => {
 function loadLeads() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return sampleLeads.map(normalizeLead);
+    if (!stored) return [];
     const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed.map(normalizeLead) : sampleLeads.map(normalizeLead);
+    return Array.isArray(parsed) ? parsed.map(normalizeLead) : [];
   } catch {
-    return sampleLeads.map(normalizeLead);
+    return [];
   }
 }
 
@@ -168,7 +57,6 @@ function bindEvents() {
   document.getElementById("clear-form").addEventListener("click", clearForm);
   document.getElementById("close-modal").addEventListener("click", closeLeadModal);
   document.getElementById("cancel-modal").addEventListener("click", closeLeadModal);
-  document.getElementById("reset-sample").addEventListener("click", resetSampleData);
   document.getElementById("export-report").addEventListener("click", exportReportCsv);
   document.getElementById("export-leads").addEventListener("click", exportLeadsCsv);
 
@@ -243,7 +131,7 @@ function render() {
 }
 
 function renderRepControls() {
-  const reps = Array.from(new Set([...BASE_REPS, ...state.leads.map((lead) => lead.repName).filter(Boolean)])).sort();
+  const reps = Array.from(new Set(state.leads.map((lead) => lead.repName).filter(Boolean))).sort();
 
   const filter = document.getElementById("rep-filter");
   const currentFilter = filter.value || state.filters.rep;
@@ -591,14 +479,6 @@ function closeLeadModal() {
 
 function isLeadModalOpen() {
   return !document.getElementById("lead-modal").hidden;
-}
-
-function resetSampleData() {
-  state.leads = sampleLeads.map(normalizeLead);
-  saveLeads();
-  clearForm();
-  showStatus("Sample data restored", false);
-  render();
 }
 
 function exportReportCsv() {
