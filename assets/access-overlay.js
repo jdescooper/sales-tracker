@@ -158,6 +158,7 @@
     workspace.appendChild(section);
 
     document.getElementById("access-refresh-users").addEventListener("click", () => loadAdminUsers(true));
+    section.addEventListener("submit", handleAdminSubmit);
     section.addEventListener("change", handleAdminChange);
     section.addEventListener("click", handleAdminClick);
     loadAdminUsers(false);
@@ -207,6 +208,31 @@
         ${metric("Admins", users.filter((user) => normalizeRoles(user.roles).includes("admin")).length)}
         ${metric("Managers", users.filter((user) => normalizeRoles(user.roles).includes("manager")).length)}
       </div>
+      <form class="access-create-user" id="access-create-user">
+        <label>
+          Name
+          <input name="fullName" autocomplete="name" placeholder="Jane Cooper">
+        </label>
+        <label>
+          Email
+          <input name="email" type="email" autocomplete="email" required>
+        </label>
+        <label>
+          Temporary password
+          <input name="password" type="password" autocomplete="new-password" minlength="6" required>
+        </label>
+        <label>
+          Role
+          <select name="role">
+            ${ROLE_ORDER.map((role) => `<option value="${role}" ${role === "rep" ? "selected" : ""}>${ROLE_LABELS[role]}</option>`).join("")}
+          </select>
+        </label>
+        <label class="access-toggle">
+          <input name="active" type="checkbox" checked>
+          <span>Active</span>
+        </label>
+        <button class="button primary" type="submit">Create User</button>
+      </form>
       <div class="table-wrap access-admin-table" tabindex="0">
         <table>
           <thead>
@@ -261,6 +287,32 @@
     }
     const active = event.target.closest("[data-access-active]");
     if (active) await updateAdminUser(active.dataset.accessActive, { active: active.checked });
+  }
+
+  async function handleAdminSubmit(event) {
+    if (!event.target.matches("#access-create-user")) return;
+    event.preventDefault();
+    const form = event.target;
+    const formData = Object.fromEntries(new FormData(form).entries());
+    state.adminLoading = true;
+    renderAdmin();
+    try {
+      const response = await callAdminUsers({
+        action: "create",
+        fullName: String(formData.fullName || "").trim(),
+        email: String(formData.email || "").trim(),
+        password: String(formData.password || ""),
+        active: formData.active === "on",
+        roles: [String(formData.role || "rep")]
+      });
+      state.users = response.users || [];
+      showToastMessage(response.message || "User created.", false);
+    } catch (error) {
+      showToastMessage(error.message || "User creation failed.", true);
+    } finally {
+      state.adminLoading = false;
+      renderAdmin();
+    }
   }
 
   async function handleAdminClick(event) {
@@ -604,11 +656,13 @@
     style.id = "access-overlay-styles";
     style.textContent = `
       .access-summary { display:grid; grid-template-columns:repeat(4,minmax(120px,1fr)); gap:8px; min-width:0; }
+      .access-create-user { display:grid; grid-template-columns:1.2fr 1.3fr 1fr 140px auto auto; align-items:end; gap:8px; margin:10px 0; padding:10px; border:1px solid var(--line); border-radius:8px; background:#fff; }
       .access-admin-table select { min-width:130px; }
       .access-toggle { display:inline-flex; grid-template-columns:none; align-items:center; gap:8px; font-size:.82rem; font-weight:850; }
       .access-toggle input { width:auto; min-height:auto; }
       .text-button.access-danger { border-color:#ffb2b2; color:var(--red); }
-      @media (max-width:760px) { .access-summary { grid-template-columns:1fr 1fr; } }
+      @media (max-width:1100px) { .access-create-user { grid-template-columns:1fr 1fr; } }
+      @media (max-width:760px) { .access-summary { grid-template-columns:1fr 1fr; } .access-create-user { grid-template-columns:1fr; } }
     `;
     document.head.appendChild(style);
   }
