@@ -137,12 +137,13 @@
     event.preventDefault();
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form).entries());
+    const mode = event.submitter?.value || data.mode || "signin";
     const email = String(data.email || "").trim();
     const password = String(data.password || "");
     if (!email || !password) return;
-    renderSignIn(data.mode === "signup" ? "Creating user..." : "Signing in...");
+    renderSignIn(mode === "signup" ? "Creating user..." : "Signing in...");
     try {
-      const response = data.mode === "signup"
+      const response = mode === "signup"
         ? await client.auth.signUp({ email, password })
         : await client.auth.signInWithPassword({ email, password });
       if (response.error) throw response.error;
@@ -359,5 +360,5 @@
   function dateOrToday(value) { return nullableDate(value) || new Date().toISOString().slice(0, 10); }
   function numberOrNull(value) { const number = Number(value || 0); return Number.isFinite(number) && number > 0 ? number : null; }
   function isUuid(value) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || "")); }
-  function escapeHtml(value) { return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+  function escapeHtml(value) { return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;"); }
 })();
