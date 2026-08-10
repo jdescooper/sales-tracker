@@ -9,8 +9,10 @@ const corsHeaders = {
 type AppRole = "admin" | "manager" | "rep";
 
 type AdminRequest = {
-  action?: "list" | "update" | "delete";
+  action?: "list" | "create" | "update" | "delete";
   userId?: string;
+  email?: string;
+  password?: string;
   fullName?: string;
   active?: boolean;
   roles?: AppRole[];
@@ -34,6 +36,11 @@ Deno.serve(async (req) => {
 
     if (body.action === "list") {
       return jsonResponse({ users: await listUsers() });
+    }
+
+    if (body.action === "create") {
+      await createUser(body);
+      return jsonResponse({ users: await listUsers(), message: "User created and email confirmed." });
     }
 
     if (body.action === "update") {
@@ -132,6 +139,44 @@ async function listUsers() {
       createdAt: user.created_at || profile?.created_at || ""
     };
   }).sort((a, b) => String(a.fullName || a.email).localeCompare(String(b.fullName || b.email)));
+}
+
+async function createUser(body: AdminRequest) {
+  const email = String(body.email || "").trim().toLowerCase();
+  const password = String(body.password || "");
+  const fullName = String(body.fullName || "").trim() || email.split("@")[0];
+  const roles = normalizeRoles(body.roles);
+
+  if (!email) throw new AdminError("Email is required.", 400);
+  if (password.length < 6) throw new AdminError("Password must be at least 6 characters.", 400);
+
+  const { data, error } = await adminClient.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: fullName }
+  });
+  if (error) throw error;
+
+  const userId = data.user?.id;
+  if (!userId) throw new AdminError("User was not created.", 500);
+
+  const { error: profileError } = await adminClient
+    .from("profiles")
+    .upsert({
+      user_id: userId,
+      email,
+      full_name: fullName,
+      active: body.active !== false,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id" });
+  if (profileError) throw profileError;
+
+  await adminClient.from("user_roles").delete().eq("user_id", userId);
+  const { error: roleError } = await adminClient
+    .from("user_roles")
+    .insert(roles.map((role) => ({ user_id: userId, role })));
+  if (roleError) throw roleError;
 }
 
 async function updateUser(actorId: string, body: AdminRequest) {
