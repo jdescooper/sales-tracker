@@ -58,15 +58,15 @@ To activate shared team data:
 1. Create a Supabase project.
 2. Run the SQL files in `supabase/migrations/` in order in the Supabase SQL editor.
 3. Enable email/password sign-in in Supabase Auth.
-4. Open `assets/config.js`, then fill in the project URL and public anon key. `assets/config.example.js` shows the expected shape.
-5. Deploy the repo again.
+4. Deploy the `admin-users` Edge Function from `supabase/functions/admin-users/`.
+5. Open `assets/config.js`, then fill in the project URL and public anon key. `assets/config.example.js` shows the expected shape.
+6. Deploy the repo again.
 
 After users sign in, the pipeline loads shared team leads from Supabase. If a browser already had local leads, sign in and use `Import Local Data` once to move them into the shared backend.
 
-The public anon key is safe to use in the browser as long as Row Level Security stays enabled. The migration blocks normal app deletes; leads should be marked Lost with a reason instead.
+The public anon key is safe to use in the browser as long as Row Level Security stays enabled. Reps can only see and edit lead details they own. Managers and admins can see team lead details. All active users can see organization-level report totals without seeing other reps' customer/job details. The migration blocks normal app deletes; leads should be marked Lost with a reason instead.
 
 ## Handoff docs
 
 - `docs/pipeline-model.md` explains the stage model and revenue definitions.
 - `docs/backend-setup.md` explains the Supabase Auth and shared-data setup.
-- `docs/github-handoff.md` explains how to publish or import this repo into GitHub.
