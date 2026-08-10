@@ -4,11 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CIS Lead Pipeline</title>
-    <meta name="description" content="Lead-to-revenue pipeline for Cooper Installation Services.">
+    <meta name="description" content="Lead-to-revenue workspace for Cooper Installation Services.">
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <div class="pipeline-shell">
+    <a class="skip-link" href="#workspace">Skip to workspace</a>
+
+    <div class="pipeline-shell" id="app-shell">
       <header class="app-header">
         <div class="brand-mark" aria-label="Cooper Installation Services">
           <span>CIS</span>
@@ -19,70 +21,102 @@
         </div>
 
         <div class="header-title">
-          <p class="eyebrow">Sales pipeline</p>
+          <p class="eyebrow">Sales workspace</p>
           <h1>CIS Lead Pipeline</h1>
         </div>
 
         <div class="header-actions">
-          <button class="button" id="new-lead" type="button">New Lead</button>
-          <button class="button secondary" id="export-report" type="button">Export Leadership CSV</button>
-          <button class="button secondary" id="export-leads" type="button">Export Leads CSV</button>
+          <button class="button primary" id="new-lead" type="button">New Lead</button>
+          <details class="action-menu" id="header-menu">
+            <summary class="button icon-text" aria-label="More actions">More</summary>
+            <div class="menu-panel">
+              <button type="button" id="export-report">Export Leadership CSV</button>
+              <button type="button" id="export-leads">Export Leads CSV</button>
+              <button type="button" id="print-report">Print Reports</button>
+            </div>
+          </details>
         </div>
       </header>
 
-      <main class="pipeline-main">
-        <section class="dashboard-panel" aria-label="Pipeline dashboard">
-          <div class="dashboard-heading">
-            <div>
-              <p class="eyebrow">At a glance</p>
-              <h2>Pipeline dashboard</h2>
-            </div>
-            <p id="board-count"></p>
-          </div>
+      <main class="workspace" id="workspace">
+        <nav class="primary-tabs" aria-label="Primary views">
+          <button class="tab-button is-active" data-view-tab="my-work" type="button">My Work</button>
+          <button class="tab-button" data-view-tab="pipeline" type="button">Pipeline</button>
+          <button class="tab-button" data-view-tab="reports" type="button">Reports</button>
+        </nav>
 
-          <div class="metrics-grid" id="team-metrics" aria-label="Team pipeline totals"></div>
-
-          <div class="filters" aria-label="Pipeline filters">
-            <label>
-              Search
-              <input id="search-filter" placeholder="Customer, lead ID, store, address">
-            </label>
-            <label>
-              Rep
-              <select id="rep-filter"></select>
-            </label>
-            <label>
-              Stage
-              <select id="stage-filter"></select>
-            </label>
-            <label>
-              Received from
-              <input id="start-filter" type="date">
-            </label>
-            <label>
-              Received to
-              <input id="end-filter" type="date">
-            </label>
-          </div>
+        <section class="filter-panel" aria-label="Workspace filters">
+          <label>
+            Search
+            <input id="search-filter" placeholder="Customer, MWO number, contact, store">
+          </label>
+          <label>
+            Rep
+            <select id="rep-filter"></select>
+          </label>
+          <label>
+            Stage
+            <select id="stage-filter"></select>
+          </label>
+          <label>
+            Received from
+            <input id="start-filter" type="date">
+          </label>
+          <label>
+            Received to
+            <input id="end-filter" type="date">
+          </label>
         </section>
 
-        <section class="board-panel" aria-labelledby="board-title">
-          <div class="board-heading">
+        <section class="view-panel is-active" id="view-my-work" aria-labelledby="my-work-title">
+          <div class="view-heading">
             <div>
-              <p class="eyebrow">Kanban board</p>
-              <h2 id="board-title">Pipeline</h2>
+              <p class="eyebrow">Daily action list</p>
+              <h2 id="my-work-title">My Work</h2>
             </div>
+            <p id="work-count" class="count-label"></p>
           </div>
+          <div class="focus-strip" id="focus-metrics"></div>
+          <div class="work-grid" id="my-work-view"></div>
+        </section>
+
+        <section class="view-panel" id="view-pipeline" aria-labelledby="pipeline-title" hidden>
+          <div class="view-heading">
+            <div>
+              <p class="eyebrow">Stage management</p>
+              <h2 id="pipeline-title">Pipeline</h2>
+            </div>
+            <p id="board-count" class="count-label"></p>
+          </div>
+
+          <div class="phase-tabs" role="group" aria-label="Pipeline phase">
+            <button class="phase-button is-active" data-phase-tab="sales" type="button">Sales</button>
+            <button class="phase-button" data-phase-tab="fulfillment" type="button">Fulfillment</button>
+            <button class="phase-button" data-phase-tab="closed" type="button">Closed</button>
+          </div>
+
+          <div class="mobile-stage-control">
+            <label>
+              Stage list
+              <select id="mobile-stage-filter"></select>
+            </label>
+          </div>
+
+          <p class="scroll-hint" id="board-scroll-hint">Scroll stages horizontally inside the board.</p>
           <div id="board-view"></div>
         </section>
 
-        <section class="report-panel" aria-labelledby="report-title">
-          <div class="report-heading">
+        <section class="view-panel" id="view-reports" aria-labelledby="reports-title" hidden>
+          <div class="view-heading">
             <div>
-              <p class="eyebrow">Leadership report</p>
-              <h2 id="report-title">Revenue by rep</h2>
+              <p class="eyebrow">Leadership reporting</p>
+              <h2 id="reports-title">Reports</h2>
             </div>
-            <button class="button secondary" onclick="window.print()" type="button">Print</button>
+            <div class="report-actions">
+              <button class="button secondary" id="report-export-report" type="button">Leadership CSV</button>
+              <button class="button secondary" id="report-export-leads" type="button">Leads CSV</button>
+              <button class="button secondary" id="report-print" type="button">Print</button>
+            </div>
           </div>
           <div id="report-view"></div>
         </section>
@@ -92,143 +126,215 @@
     <div class="toast" id="app-status" role="status" aria-live="polite"></div>
 
     <div class="modal-backdrop" id="lead-modal" hidden>
-      <section class="lead-modal" role="dialog" aria-modal="true" aria-labelledby="lead-form-title">
+      <section class="lead-modal" role="dialog" aria-modal="true" aria-labelledby="lead-form-title" aria-describedby="lead-form-description">
         <div class="modal-heading">
           <div>
-            <p class="eyebrow">Lead details</p>
+            <p class="eyebrow">Lead intake</p>
             <h2 id="lead-form-title">New lead</h2>
+            <p id="lead-form-description">Create the lead with only the information needed to start daily follow-up.</p>
           </div>
           <button class="icon-button" id="close-modal" type="button" aria-label="Close lead form">X</button>
         </div>
 
-        <form id="lead-form" class="lead-form">
+        <form id="lead-form" class="lead-form" novalidate>
+          <div class="error-summary" id="lead-error-summary" tabindex="-1" hidden></div>
           <input type="hidden" name="id">
 
-          <label>
-            Lead ID
-            <input name="externalLeadId" placeholder="HDSC or PO number" required>
-          </label>
+          <div class="form-section">
+            <h3>Lead basics</h3>
+            <div class="form-row">
+              <label>
+                <span>Measure Work Order Number <strong aria-hidden="true">*</strong></span>
+                <input name="externalLeadId" autocomplete="off" required>
+                <small class="field-error" data-error-for="externalLeadId"></small>
+              </label>
+              <label>
+                <span>Customer <strong aria-hidden="true">*</strong></span>
+                <input name="customerName" autocomplete="organization" required>
+                <small class="field-error" data-error-for="customerName"></small>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                <span>Phone Number</span>
+                <input name="contactPhone" autocomplete="tel">
+                <small class="field-error" data-error-for="contactPhone"></small>
+              </label>
+              <label>
+                <span>Email Address</span>
+                <input name="contactEmail" type="email" autocomplete="email">
+                <small class="field-error" data-error-for="contactEmail"></small>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                <span>Assigned rep <strong aria-hidden="true">*</strong></span>
+                <select name="repChoice" id="rep-choice" required></select>
+                <small class="field-error" data-error-for="repChoice"></small>
+              </label>
+              <label class="new-rep-field" id="new-rep-field" hidden>
+                <span>New rep name <strong aria-hidden="true">*</strong></span>
+                <input name="repName" autocomplete="name">
+                <small class="field-error" data-error-for="repName"></small>
+              </label>
+            </div>
+          </div>
 
-          <label>
-            Customer
-            <input name="customerName" placeholder="Customer or company" required>
-          </label>
-
-          <label>
-            Assigned Rep
-            <input name="repName" list="rep-options" placeholder="Rep name" required>
-            <datalist id="rep-options"></datalist>
-          </label>
-
-          <div class="form-row">
+          <div class="form-section">
+            <h3>Job details</h3>
+            <div class="form-row">
+              <label>
+                <span>Source</span>
+                <select name="source">
+                  <option>HDSC</option>
+                  <option>Home Depot Store</option>
+                  <option>Phone</option>
+                  <option>Email</option>
+                  <option>Referral</option>
+                </select>
+              </label>
+              <label>
+                <span>Path</span>
+                <select name="jobPath">
+                  <option>SFI</option>
+                  <option>F&I</option>
+                </select>
+              </label>
+            </div>
             <label>
-              Source
-              <select name="source">
-                <option>HDSC</option>
-                <option>Home Depot Store</option>
-                <option>Phone</option>
-                <option>Email</option>
-                <option>Referral</option>
-              </select>
+              <span>Street</span>
+              <input name="street" autocomplete="address-line1">
+            </label>
+            <div class="form-row three">
+              <label>
+                <span>City</span>
+                <input name="city" autocomplete="address-level2">
+              </label>
+              <label>
+                <span>State</span>
+                <input name="state" autocomplete="address-level1">
+              </label>
+              <label>
+                <span>ZIP Code</span>
+                <input name="zipCode" autocomplete="postal-code" inputmode="numeric">
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                <span>Store #</span>
+                <input name="storeNumber" inputmode="numeric">
+              </label>
+              <label>
+                <span>Product</span>
+                <input name="productType">
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                <span>Measure Scheduled</span>
+                <input name="measureScheduledDate" type="date">
+              </label>
+              <label>
+                <span>Install Scheduled</span>
+                <input name="installScheduledDate" type="date">
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                <span>Received date <strong aria-hidden="true">*</strong></span>
+                <input name="dateReceived" type="date" required>
+                <small class="field-error" data-error-for="dateReceived"></small>
+              </label>
+              <label>
+                <span>Priority</span>
+                <select name="priority">
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Next action</h3>
+            <label>
+              <span>Next action</span>
+              <input name="nextAction" placeholder="Call customer, schedule measure, send follow-up">
             </label>
             <label>
-              Path
-              <select name="jobPath">
-                <option>SFI</option>
-                <option>F&I</option>
-              </select>
+              <span>Next action due</span>
+              <input name="nextActionDue" type="date">
             </label>
           </div>
 
-          <label>
-            Job location
-            <input name="address" placeholder="Street, city, state">
-          </label>
-
-          <div class="form-row">
-            <label>
-              Store #
-              <input name="storeNumber" placeholder="1234">
-            </label>
-            <label>
-              Product
-              <input name="productType" placeholder="Carpet, LVP, tile">
-            </label>
-          </div>
-
-          <label>
-            Pipeline stage
-            <select name="stageId" id="stage-select"></select>
-          </label>
-
-          <div class="form-row">
-            <label>
-              Received
-              <input name="dateReceived" type="date" required>
-            </label>
-            <label>
-              Measure Done
-              <input name="measureCompletedDate" type="date">
-            </label>
-          </div>
-
-          <div class="form-row">
-            <label>
-              Quote Amount
-              <input name="quoteAmount" type="number" min="0" step="0.01" placeholder="0.00">
-            </label>
-            <label>
-              Quote Sent
-              <input name="quoteSentDate" type="date">
-            </label>
-          </div>
-
-          <div class="form-row">
-            <label>
-              Won Date
-              <input name="soldDate" type="date">
-            </label>
-            <label>
-              Closed Date
-              <input name="closedDate" type="date">
-            </label>
-          </div>
-
-          <div class="form-row">
-            <label>
-              Final Revenue
-              <input name="realizedRevenue" type="number" min="0" step="0.01" placeholder="0.00">
-            </label>
-            <label>
-              Lost Reason
-              <select name="lostReason">
-                <option value="">None</option>
-                <option>No Contact Made</option>
-                <option>No Longer Interested</option>
-                <option>Out of Scope</option>
-                <option>Price</option>
-                <option>Cancelled</option>
-                <option>Duplicate</option>
-              </select>
-            </label>
-          </div>
-
-          <label>
-            Notes
-            <textarea name="notes" rows="4" placeholder="Scope, follow-up, payment notes, or closeout blockers"></textarea>
-          </label>
-
-          <div class="form-actions">
-            <button class="button" type="submit">Save Lead</button>
-            <button class="button ghost" id="clear-form" type="button">Clear</button>
+          <div class="form-actions sticky-actions">
+            <button class="button primary" type="submit">Save Lead</button>
             <button class="button secondary" id="cancel-modal" type="button">Cancel</button>
-            <span class="form-status" id="form-status" role="status"></span>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <aside class="drawer-backdrop" id="lead-drawer" hidden>
+      <section class="lead-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+        <div class="drawer-heading">
+          <div>
+            <p class="eyebrow">Lead workspace</p>
+            <h2 id="drawer-title">Lead details</h2>
+          </div>
+          <button class="icon-button" id="close-drawer" type="button" aria-label="Close lead details">X</button>
+        </div>
+        <div id="drawer-content"></div>
+      </section>
+    </aside>
+
+    <div class="modal-backdrop" id="stage-modal" hidden>
+      <section class="stage-modal" role="dialog" aria-modal="true" aria-labelledby="stage-modal-title">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Stage transition</p>
+            <h2 id="stage-modal-title">Move lead</h2>
+          </div>
+          <button class="icon-button" id="close-stage-modal" type="button" aria-label="Close move dialog">X</button>
+        </div>
+        <form id="stage-form" class="lead-form" novalidate>
+          <div class="error-summary" id="stage-error-summary" tabindex="-1" hidden></div>
+          <input type="hidden" name="leadId">
+          <input type="hidden" name="targetStageId">
+          <div id="stage-form-fields"></div>
+          <div class="form-actions sticky-actions">
+            <button class="button primary" type="submit">Confirm Move</button>
+            <button class="button secondary" id="cancel-stage-modal" type="button">Cancel</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="quick-action-modal" hidden>
+      <section class="stage-modal" role="dialog" aria-modal="true" aria-labelledby="quick-action-title">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Quick action</p>
+            <h2 id="quick-action-title">Update lead</h2>
+          </div>
+          <button class="icon-button" id="close-quick-action" type="button" aria-label="Close quick action">X</button>
+        </div>
+        <form id="quick-action-form" class="lead-form" novalidate>
+          <div class="error-summary" id="quick-action-error-summary" tabindex="-1" hidden></div>
+          <input type="hidden" name="leadId">
+          <input type="hidden" name="actionType">
+          <div id="quick-action-fields"></div>
+          <div class="form-actions sticky-actions">
+            <button class="button primary" type="submit">Save Update</button>
+            <button class="button secondary" id="cancel-quick-action" type="button">Cancel</button>
           </div>
         </form>
       </section>
     </div>
 
     <script src="assets/reporting.js"></script>
-    <script src="assets/app-empty.js"></script>
+    <script src="assets/app.js"></script>
   </body>
 </html>

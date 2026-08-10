@@ -43,7 +43,7 @@
       name: "Install & Close-Out",
       shortName: "Close-Out",
       sort: 50,
-      revenueState: "realized",
+      revenueState: "won",
       description: "Material, install, completion approval, final payment, and closeout are being handled."
     },
     {
@@ -56,6 +56,9 @@
     }
   ];
 
+  const STORAGE_VERSION = 3;
+  const STALE_DAYS = 14;
+  const AGING_QUOTE_DAYS = 8;
   const STAGE_BY_ID = PIPELINE_STAGES.reduce((acc, stage) => {
     acc[stage.id] = stage;
     return acc;
@@ -63,8 +66,8 @@
 
   const OPEN_QUOTE_STAGE_IDS = new Set(["quote_customer_decision"]);
   const WON_STAGE_IDS = new Set(["sold_payment_gate", "install_closeout"]);
-  const REALIZED_STAGE_IDS = new Set(["install_closeout"]);
   const LOST_STAGE_IDS = new Set(["lost_cancelled"]);
+  const CLOSED_STAGE_IDS = new Set(["lost_cancelled"]);
 
   function normalizeNumber(value) {
     if (value === null || value === undefined || value === "") return 0;
@@ -76,35 +79,106 @@
     return String(value || "").trim();
   }
 
+  function normalizeDateText(value) {
+    const text = normalizeText(value);
+    if (!text) return "";
+    const date = parseDate(text);
+    return date ? toIsoDate(date) : text;
+  }
+
+  function normalizePriority(value) {
+    const priority = normalizeText(value).toLowerCase();
+    return ["low", "normal", "high", "urgent"].includes(priority) ? priority : "normal";
+  }
+
+  function normalizeActivityLog(value, fallbackDate) {
+    const entries = Array.isArray(value) ? value : [];
+    const normalized = entries
+      .map((entry) => ({
+        at: normalizeDateText(entry && entry.at),
+        type: normalizeText(entry && entry.type) || "note",
+        label: normalizeText(entry && entry.label)
+      }))
+      .filter((entry) => entry.at || entry.label);
+
+    if (!normalized.length && fallbackDate) {
+      normalized.push({
+        at: fallbackDate,
+        type: "created",
+        label: "Lead received"
+      });
+    }
+
+    return normalized.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+  }
+
   function normalizeLead(lead) {
-    const stageId = STAGE_BY_ID[lead.stageId] ? lead.stageId : PIPELINE_STAGES[0].id;
+    const safeLead = lead || {};
+    const stageId = STAGE_BY_ID[safeLead.stageId] ? safeLead.stageId : PIPELINE_STAGES[0].id;
+    const dateReceived = normalizeDateText(safeLead.dateReceived);
+    const stageEnteredAt = normalizeDateText(safeLead.stageEnteredAt) || dateReceived;
+    const lastActivityAt = normalizeDateText(safeLead.lastActivityAt) || normalizeDateText(safeLead.quoteSentDate) || normalizeDateText(safeLead.measureCompletedDate) || dateReceived;
+    const street = normalizeText(safeLead.street || safeLead.streetAddress || safeLead.jobStreet || safeLead.address || safeLead.jobAddress);
+    const city = normalizeText(safeLead.city || safeLead.jobCity);
+    const state = normalizeText(safeLead.state || safeLead.jobState);
+    const zipCode = normalizeText(safeLead.zipCode || safeLead.zip || safeLead.postalCode || safeLead.jobZip);
+    const address = normalizeText(safeLead.address || safeLead.jobAddress || [street, city, state, zipCode].filter(Boolean).join(", "));
+
     return {
-      id: normalizeText(lead.id),
-      externalLeadId: normalizeText(lead.externalLeadId),
-      source: normalizeText(lead.source) || "HDSC",
-      jobPath: normalizeText(lead.jobPath) || "SFI",
-      customerName: normalizeText(lead.customerName),
-      repName: normalizeText(lead.repName) || "Unassigned",
-      address: normalizeText(lead.address),
-      storeNumber: normalizeText(lead.storeNumber),
-      productType: normalizeText(lead.productType),
+      id: normalizeText(safeLead.id),
+      externalLeadId: normalizeText(safeLead.externalLeadId),
+      source: normalizeText(safeLead.source) || "HDSC",
+      jobPath: normalizeText(safeLead.jobPath) || "SFI",
+      customerName: normalizeText(safeLead.customerName),
+      repName: normalizeText(safeLead.repName) || "Unassigned",
+      contactPhone: normalizeText(safeLead.contactPhone || safeLead.customerPhone),
+      contactEmail: normalizeText(safeLead.contactEmail || safeLead.customerEmail),
+      street,
+      city,
+      state,
+      zipCode,
+      address,
+      storeNumber: normalizeText(safeLead.storeNumber),
+      productType: normalizeText(safeLead.productType),
       stageId,
-      dateReceived: normalizeText(lead.dateReceived),
-      measureCompletedDate: normalizeText(lead.measureCompletedDate),
-      quoteAmount: normalizeNumber(lead.quoteAmount),
-      quoteSentDate: normalizeText(lead.quoteSentDate),
-      soldDate: normalizeText(lead.soldDate),
-      closedDate: normalizeText(lead.closedDate),
-      realizedRevenue: normalizeNumber(lead.realizedRevenue),
-      lostReason: normalizeText(lead.lostReason),
-      notes: normalizeText(lead.notes)
+      dateReceived,
+      measureScheduledDate: normalizeDateText(safeLead.measureScheduledDate),
+      measureCompletedDate: normalizeDateText(safeLead.measureCompletedDate),
+      quoteAmount: normalizeNumber(safeLead.quoteAmount),
+      quoteSentDate: normalizeDateText(safeLead.quoteSentDate),
+      soldDate: normalizeDateText(safeLead.soldDate),
+      closedDate: normalizeDateText(safeLead.closedDate),
+      realizedRevenue: normalizeNumber(safeLead.realizedRevenue),
+      lostReason: normalizeText(safeLead.lostReason),
+      lostDate: normalizeDateText(safeLead.lostDate),
+      nextAction: normalizeText(safeLead.nextAction),
+      nextActionDue: normalizeDateText(safeLead.nextActionDue),
+      lastActivityAt,
+      stageEnteredAt,
+      expectedCloseDate: normalizeDateText(safeLead.expectedCloseDate),
+      priority: normalizePriority(safeLead.priority),
+      paymentStatus: normalizeText(safeLead.paymentStatus) || "Not requested",
+      installScheduledDate: normalizeDateText(safeLead.installScheduledDate),
+      notes: normalizeText(safeLead.notes),
+      archivedAt: normalizeDateText(safeLead.archivedAt),
+      activityLog: normalizeActivityLog(safeLead.activityLog || safeLead.activities, dateReceived)
     };
   }
 
   function parseDate(value) {
     if (!value) return null;
-    const date = new Date(`${value}T00:00:00`);
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+    const text = String(value).slice(0, 10);
+    const date = new Date(`${text}T00:00:00`);
     return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function toIsoDate(date) {
+    return date.toISOString().slice(0, 10);
+  }
+
+  function todayIso() {
+    return toIsoDate(new Date());
   }
 
   function daysBetween(startValue, endValue) {
@@ -115,10 +189,15 @@
   }
 
   function daysSince(value, todayValue) {
-    const today = parseDate(todayValue) || new Date();
+    const today = parseDate(todayValue) || parseDate(todayIso());
     const date = parseDate(value);
-    if (!date) return null;
+    if (!date || !today) return null;
     return Math.max(0, Math.round((today.getTime() - date.getTime()) / 86400000));
+  }
+
+  function daysInCurrentStage(lead, todayValue) {
+    const normalized = normalizeLead(lead);
+    return daysSince(normalized.stageEnteredAt || normalized.dateReceived, todayValue) || 0;
   }
 
   function isWithinDateRange(value, startValue, endValue) {
@@ -131,10 +210,122 @@
     return true;
   }
 
+  function isClosedLead(lead) {
+    const normalized = normalizeLead(lead);
+    return CLOSED_STAGE_IDS.has(normalized.stageId) || Boolean(normalized.closedDate);
+  }
+
+  function isLostLead(lead) {
+    const normalized = normalizeLead(lead);
+    return normalized.stageId === "lost_cancelled" || Boolean(normalized.lostDate);
+  }
+
+  function isCompletedLead(lead) {
+    const normalized = normalizeLead(lead);
+    return Boolean(normalized.closedDate) && !isLostLead(normalized);
+  }
+
+  function nextActionStatus(lead, todayValue) {
+    const normalized = normalizeLead(lead);
+    if (!normalized.nextAction || !normalized.nextActionDue) {
+      return { status: "none", label: "No next action", daysDelta: null };
+    }
+    const diff = daysBetween(todayValue || todayIso(), normalized.nextActionDue);
+    if (diff === null) return { status: "none", label: "No due date", daysDelta: null };
+    if (diff < 0) return { status: "overdue", label: `${Math.abs(diff)}d overdue`, daysDelta: diff };
+    if (diff === 0) return { status: "today", label: "Due today", daysDelta: diff };
+    return { status: "upcoming", label: `Due in ${diff}d`, daysDelta: diff };
+  }
+
+  function isOverdueLead(lead, todayValue) {
+    return nextActionStatus(lead, todayValue).status === "overdue";
+  }
+
+  function isDueTodayLead(lead, todayValue) {
+    return nextActionStatus(lead, todayValue).status === "today";
+  }
+
+  function isNoNextActionLead(lead) {
+    const normalized = normalizeLead(lead);
+    return !isClosedLead(normalized) && (!normalized.nextAction || !normalized.nextActionDue);
+  }
+
+  function isStaleLead(lead, options) {
+    const opts = options || {};
+    const normalized = normalizeLead(lead);
+    if (isClosedLead(normalized)) return false;
+    const staleDays = opts.staleDays || STALE_DAYS;
+    const age = daysSince(normalized.lastActivityAt || normalized.dateReceived, opts.today);
+    return age !== null && age >= staleDays;
+  }
+
+  function isAgingQuoteLead(lead, options) {
+    const opts = options || {};
+    const normalized = normalizeLead(lead);
+    if (!OPEN_QUOTE_STAGE_IDS.has(normalized.stageId) || isLostLead(normalized)) return false;
+    const age = daysSince(normalized.quoteSentDate, opts.today);
+    return age !== null && age >= (opts.agingQuoteDays || AGING_QUOTE_DAYS);
+  }
+
+  function urgencyScore(lead, options) {
+    const opts = options || {};
+    const normalized = normalizeLead(lead);
+    if (normalized.archivedAt || isClosedLead(normalized)) return -1;
+    let score = 0;
+    const priorityScores = { urgent: 80, high: 45, normal: 15, low: 0 };
+    score += priorityScores[normalized.priority] || 0;
+    const action = nextActionStatus(normalized, opts.today);
+    if (action.status === "overdue") score += 100 + Math.min(Math.abs(action.daysDelta || 0), 30);
+    if (action.status === "today") score += 70;
+    if (isAgingQuoteLead(normalized, opts)) score += 55;
+    if (isStaleLead(normalized, opts)) score += 35;
+    if (isNoNextActionLead(normalized)) score += 25;
+    score += Math.min(daysInCurrentStage(normalized, opts.today), 30);
+    return score;
+  }
+
+  function sortLeadsByUrgency(leads, options) {
+    const opts = options || {};
+    return leads.map(normalizeLead).sort((a, b) => {
+      const scoreDelta = urgencyScore(b, opts) - urgencyScore(a, opts);
+      if (scoreDelta) return scoreDelta;
+      const stageDelta = STAGE_BY_ID[b.stageId].sort - STAGE_BY_ID[a.stageId].sort;
+      if (stageDelta) return stageDelta;
+      return a.customerName.localeCompare(b.customerName);
+    });
+  }
+
+  function migrateLeads(input, options) {
+    const opts = options || {};
+    let payload = input;
+    if (typeof input === "string") {
+      try {
+        payload = JSON.parse(input);
+      } catch {
+        payload = [];
+      }
+    }
+    const sourceVersion = Number(payload && payload.version) || opts.fromVersion || 1;
+    const rawLeads = Array.isArray(payload) ? payload : Array.isArray(payload && payload.leads) ? payload.leads : [];
+    return {
+      version: STORAGE_VERSION,
+      migratedFrom: sourceVersion,
+      leads: rawLeads.map((lead) => normalizeLead({
+        ...lead,
+        stageEnteredAt: lead.stageEnteredAt || lead.dateReceived,
+        lastActivityAt: lead.lastActivityAt || lead.quoteSentDate || lead.measureCompletedDate || lead.dateReceived,
+        lostDate: lead.lostDate || (lead.stageId === "lost_cancelled" ? lead.closedDate : ""),
+        street: lead.street || lead.streetAddress || lead.address || lead.jobAddress,
+        activityLog: lead.activityLog || lead.activities
+      }))
+    };
+  }
+
   function filterLeads(leads, filters) {
     const safeFilters = filters || {};
     const query = normalizeText(safeFilters.search).toLowerCase();
     return leads.map(normalizeLead).filter((lead) => {
+      if (lead.archivedAt && !safeFilters.includeArchived) return false;
       if (safeFilters.rep && safeFilters.rep !== "all" && lead.repName !== safeFilters.rep) return false;
       if (safeFilters.stage && safeFilters.stage !== "all" && lead.stageId !== safeFilters.stage) return false;
       if ((safeFilters.start || safeFilters.end) && !isWithinDateRange(lead.dateReceived, safeFilters.start, safeFilters.end)) return false;
@@ -143,10 +334,17 @@
         lead.externalLeadId,
         lead.customerName,
         lead.repName,
+        lead.contactPhone,
+        lead.contactEmail,
+        lead.street,
+        lead.city,
+        lead.state,
+        lead.zipCode,
         lead.address,
         lead.storeNumber,
         lead.productType,
         lead.source,
+        lead.nextAction,
         lead.notes
       ].join(" ").toLowerCase();
       return haystack.includes(query);
@@ -166,34 +364,43 @@
       wonRevenue: 0,
       realizedRevenue: 0,
       closedOutJobs: 0,
-      agingOpenQuotes: 0,
-      agingOpenQuoteRevenue: 0,
-      quoteCycleDaysTotal: 0,
-      quoteCycleCount: 0,
+      winRate: 0,
       averageDaysToQuote: 0,
       averageQuoteAmount: 0,
-      winRate: 0
+      agingOpenQuotes: 0,
+      agingOpenQuoteRevenue: 0,
+      overdueActions: 0,
+      dueTodayActions: 0,
+      staleLeads: 0,
+      noNextAction: 0,
+      quoteCycleDaysTotal: 0,
+      quoteCycleCount: 0
     };
   }
 
   function calculateRepMetrics(leads, options) {
     const opts = options || {};
-    const today = opts.today || new Date().toISOString().slice(0, 10);
+    const today = opts.today || todayIso();
     const metrics = new Map();
 
     leads.map(normalizeLead).forEach((lead) => {
+      if (lead.archivedAt) return;
       const repName = lead.repName || "Unassigned";
       if (!metrics.has(repName)) metrics.set(repName, emptyMetric(repName));
       const metric = metrics.get(repName);
       const quoteAmount = normalizeNumber(lead.quoteAmount);
       const finalRevenue = normalizeNumber(lead.realizedRevenue) || quoteAmount;
       const hasQuote = quoteAmount > 0 || Boolean(lead.quoteSentDate);
-      const isLost = LOST_STAGE_IDS.has(lead.stageId) || Boolean(lead.lostDate);
-      const isWon = WON_STAGE_IDS.has(lead.stageId) || Boolean(lead.soldDate);
-      const isRealized = REALIZED_STAGE_IDS.has(lead.stageId) || Boolean(lead.closedDate);
+      const lost = isLostLead(lead);
+      const won = WON_STAGE_IDS.has(lead.stageId) || Boolean(lead.soldDate);
+      const completed = isCompletedLead(lead);
 
       metric.leadsAssigned += 1;
       if (lead.measureCompletedDate) metric.leadsRun += 1;
+      if (isOverdueLead(lead, today)) metric.overdueActions += 1;
+      if (isDueTodayLead(lead, today)) metric.dueTodayActions += 1;
+      if (isStaleLead(lead, { today })) metric.staleLeads += 1;
+      if (isNoNextActionLead(lead)) metric.noNextAction += 1;
 
       if (hasQuote) {
         metric.quotesSent += lead.quoteSentDate ? 1 : 0;
@@ -201,26 +408,25 @@
         metric.averageQuoteAmount += quoteAmount;
       }
 
-      if (OPEN_QUOTE_STAGE_IDS.has(lead.stageId) && !isLost) {
+      if (OPEN_QUOTE_STAGE_IDS.has(lead.stageId) && !lost) {
         metric.openPotentialRevenue += quoteAmount;
-        const age = daysSince(lead.quoteSentDate, today);
-        if (age !== null && age >= 8) {
+        if (isAgingQuoteLead(lead, { today })) {
           metric.agingOpenQuotes += 1;
           metric.agingOpenQuoteRevenue += quoteAmount;
         }
       }
 
-      if (isWon && !isLost) {
+      if (won && !lost) {
         metric.wonJobs += 1;
         metric.wonRevenue += quoteAmount;
       }
 
-      if (isRealized && !isLost) {
+      if (completed && !lost) {
         metric.closedOutJobs += 1;
         metric.realizedRevenue += finalRevenue;
       }
 
-      if (isLost) {
+      if (lost) {
         metric.lostJobs += 1;
       }
 
@@ -243,6 +449,7 @@
     });
 
     rows.sort((a, b) => {
+      if (b.overdueActions !== a.overdueActions) return b.overdueActions - a.overdueActions;
       if (b.realizedRevenue !== a.realizedRevenue) return b.realizedRevenue - a.realizedRevenue;
       if (b.wonRevenue !== a.wonRevenue) return b.wonRevenue - a.wonRevenue;
       return a.repName.localeCompare(b.repName);
@@ -267,6 +474,10 @@
       totals.closedOutJobs += row.closedOutJobs;
       totals.agingOpenQuotes += row.agingOpenQuotes;
       totals.agingOpenQuoteRevenue += row.agingOpenQuoteRevenue;
+      totals.overdueActions += row.overdueActions;
+      totals.dueTodayActions += row.dueTodayActions;
+      totals.staleLeads += row.staleLeads;
+      totals.noNextAction += row.noNextAction;
       totals.quoteCycleDaysTotal += row.quoteCycleDaysTotal;
       totals.quoteCycleCount += row.quoteCycleCount;
     });
@@ -317,17 +528,34 @@
   return {
     PIPELINE_STAGES,
     STAGE_BY_ID,
+    STORAGE_VERSION,
+    STALE_DAYS,
+    AGING_QUOTE_DAYS,
     normalizeLead,
     normalizeNumber,
+    normalizeText,
+    normalizeDateText,
+    parseDate,
+    daysBetween,
+    daysSince,
+    daysInCurrentStage,
+    nextActionStatus,
+    isOverdueLead,
+    isDueTodayLead,
+    isNoNextActionLead,
+    isStaleLead,
+    isAgingQuoteLead,
+    isClosedLead,
+    isCompletedLead,
+    urgencyScore,
+    sortLeadsByUrgency,
+    migrateLeads,
     filterLeads,
     calculateRepMetrics,
     calculateTeamMetrics,
-    daysBetween,
-    daysSince,
     formatCurrency,
     formatPercent,
     formatNumber,
     toCsv
   };
 });
-

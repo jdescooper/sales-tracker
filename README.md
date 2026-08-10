@@ -2,7 +2,7 @@
 
 This repo is a GitHub-ready starter for the Cooper Installation Services lead-to-revenue pipeline.
 
-The pipeline is based on the CIS Sales-to-Install Operations Manual, not the older opportunity board. It tracks inbound leads assigned to reps, quote amounts, quote sent dates, won/lost outcomes, potential revenue, realized revenue, and an exportable leadership report.
+The pipeline is based on the CIS Sales-to-Install Operations Manual, not the older opportunity board. It tracks inbound leads assigned to reps, Measure Work Order Numbers, scheduled measure/install dates, quote amounts, quote sent dates, won/lost outcomes, potential revenue, realized revenue, activity history, and an exportable leadership report.
 
 ## Pipeline stages
 
@@ -14,6 +14,8 @@ The pipeline is based on the CIS Sales-to-Install Operations Manual, not the old
 6. Lost / Cancelled
 
 Micro-statuses like scheduled, contacted, ran, follow-up, and payment cleared are captured as fields or activity notes. They are not separate pipeline columns.
+
+The app starts empty and ready for live use. Lost leads are moved through the Lost / Cancelled stage with a required reason instead of being deleted from the rep workflow.
 
 ## Run locally
 
