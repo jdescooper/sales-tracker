@@ -64,7 +64,7 @@ To activate shared team data:
 
 After users sign in, the pipeline loads shared team leads from Supabase. If a browser already had local leads, sign in and use `Import Local Data` once to move them into the shared backend.
 
-The public anon key is safe to use in the browser as long as Row Level Security stays enabled. Reps can only see and edit lead details they own. Managers and admins can see team lead details. All active users can see organization-level report totals without seeing other reps' customer/job details. The migration blocks normal app deletes; leads should be marked Lost with a reason instead.
+The public anon key is safe to use in the browser as long as Row Level Security stays enabled. Reps can only see and edit lead details they own. Managers and admins can see team lead details. All active users can see organization-level report totals without seeing other reps' customer/job details. Admin-created users are auto-confirmed by the Edge Function, so they can sign in without waiting for a verification email. The migration blocks normal app deletes; leads should be marked Lost with a reason instead.
 
 ## Handoff docs
 
