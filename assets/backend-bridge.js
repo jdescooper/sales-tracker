@@ -27,9 +27,12 @@
       const { data, error } = await client.auth.getSession();
       if (error) throw error;
       state.session = data.session || null;
-      client.auth.onAuthStateChange((_event, session) => {
+      client.auth.onAuthStateChange((event, session) => {
         state.session = session || null;
-        window.location.reload();
+        if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
+        if (["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED", "PASSWORD_RECOVERY"].includes(event)) {
+          window.location.reload();
+        }
       });
 
       if (!state.session) {
