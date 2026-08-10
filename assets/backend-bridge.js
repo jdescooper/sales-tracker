@@ -344,6 +344,12 @@
     window.__CIS_APP_LOADING__ = true;
     const script = document.createElement("script");
     script.src = "assets/app.js";
+    script.addEventListener("load", () => {
+      if (document.readyState !== "loading" && !window.__CIS_APP_READY_DISPATCHED__) {
+        window.__CIS_APP_READY_DISPATCHED__ = true;
+        document.dispatchEvent(new Event("DOMContentLoaded"));
+      }
+    });
     document.body.appendChild(script);
   }
 
