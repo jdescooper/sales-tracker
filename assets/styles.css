@@ -145,40 +145,15 @@ summary:focus-visible {
 .brand-mark {
   display: flex;
   align-items: center;
-  gap: 10px;
+  min-width: 0;
 }
 
-.brand-mark span {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 48px;
-  height: 38px;
-  border-radius: 4px;
-  background: var(--orange);
-  color: #ffffff;
-  font-size: 1.35rem;
-  font-weight: 950;
-  line-height: 1;
-}
-
-.brand-mark strong,
-.brand-mark small {
+.brand-mark img {
   display: block;
-  line-height: 1;
-}
-
-.brand-mark strong {
-  font-size: 1.02rem;
-  letter-spacing: 0;
-}
-
-.brand-mark small {
-  margin-top: 4px;
-  color: #cbd5df;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
 }
 
 .eyebrow {
@@ -1187,19 +1162,13 @@ tr:last-child td {
     padding: 9px 10px;
   }
 
-  .brand-mark span {
-    width: 44px;
-    height: 36px;
-    font-size: 1.18rem;
-  }
-
-  .brand-mark strong {
-    font-size: 0.9rem;
-  }
-
-  .brand-mark small,
   .header-title {
     display: none;
+  }
+
+  .brand-mark img {
+    width: 44px;
+    height: 44px;
   }
 
   .header-actions {
@@ -1334,12 +1303,9 @@ tr:last-child td {
 }
 
 @media (max-width: 420px) {
-  .brand-mark {
-    gap: 7px;
-  }
-
-  .brand-mark span {
+  .brand-mark img {
     width: 40px;
+    height: 40px;
   }
 
   .header-actions .button.primary {
