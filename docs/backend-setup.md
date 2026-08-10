@@ -9,7 +9,7 @@ This CRM uses Supabase for shared lead records and email/password sign-in.
 - Rep assignment is stored as both `assigned_to` and `assigned_rep_name`, so permissions follow the user profile while reports keep a readable rep name.
 - Browser storage remains only as a local cache and import safety net.
 - Reps do not delete leads in the app. Lost work is handled through the Lost / Cancelled stage and a required Lost Reason.
-- Admins manage users, active/inactive status, and roles from the app's Admin page.
+- Admins create confirmed users, manage active/inactive status, remove users, and assign roles from the app's Admin page.
 
 ## Supabase steps
 
@@ -28,7 +28,7 @@ The anon key is expected to be public in a browser app. Security comes from Supa
 
 1. Have each user create an account or sign in.
 2. If a user had already entered leads before the backend existed, click `Import Local Data` once after sign-in.
-3. Confirm an admin can see the Admin page and assign roles.
+3. Confirm an admin can see the Admin page, create a confirmed user, and assign roles.
 4. Confirm a rep only sees their owned lead details.
 5. Confirm the leadership CSV exports organization totals for both admins and reps.
 
@@ -43,3 +43,5 @@ Roles live in `public.user_roles`:
 All active users can run the organization-level report function. It returns totals by rep, not individual customer/job rows, so reps can see where they stand without seeing everyone else's details.
 
 Removing a user from the Admin page deletes the auth user only if there is no CRM history tied to them. If they own leads or appear in CRM history, the profile is deactivated instead so reporting and audit trails remain intact.
+
+Users created from the Admin page are created with `email_confirm: true` through the `admin-users` Edge Function. They can sign in with the temporary password immediately, even if project-level email confirmation is enabled.
