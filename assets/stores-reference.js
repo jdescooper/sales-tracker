@@ -6,6 +6,8 @@
     client: null,
     session: null,
     roles: [],
+    profiles: [],
+    setupStoreNumber: "",
     busy: false
   };
 
@@ -42,22 +44,33 @@
         .select("role")
         .eq("user_id", state.session.user.id);
       state.roles = (roles || []).map((row) => row.role);
+      if (isAdmin()) await loadProfiles();
     }
     syncButton();
   }
 
+  async function loadProfiles() {
+    const { data } = await state.client
+      .from("profiles")
+      .select("user_id, full_name, email, active")
+      .eq("active", true)
+      .order("full_name", { ascending: true });
+    state.profiles = data || [];
+  }
+
   function syncButton() {
     const toolbar = document.querySelector("#view-stores .store-toolbar-actions");
-    if (!toolbar || !isAdmin()) return;
-    if (toolbar.querySelector("[data-load-home-depot-reference]")) return;
-    const button = document.createElement("button");
-    button.className = "button secondary";
-    button.type = "button";
-    button.dataset.loadHomeDepotReference = "true";
-    button.textContent = "Load Home Depot Reference";
-    button.addEventListener("click", loadReference);
-    const importButton = toolbar.querySelector("[data-toggle-store-import]");
-    importButton ? toolbar.insertBefore(button, importButton) : toolbar.appendChild(button);
+    if (toolbar && isAdmin() && !toolbar.querySelector("[data-load-home-depot-reference]")) {
+      const button = document.createElement("button");
+      button.className = "button secondary";
+      button.type = "button";
+      button.dataset.loadHomeDepotReference = "true";
+      button.textContent = "Load Home Depot Reference";
+      button.addEventListener("click", loadReference);
+      const importButton = toolbar.querySelector("[data-toggle-store-import]");
+      importButton ? toolbar.insertBefore(button, importButton) : toolbar.appendChild(button);
+    }
+    syncSetupForm();
   }
 
   async function loadReference() {
@@ -103,6 +116,86 @@
       longitude: numberOrNull(field(row, ["longitude", "lng", "lon"])),
       active: true
     };
+  }
+
+  async function syncSetupForm() {
+    if (!isAdmin()) return;
+    const detail = document.querySelector("#view-stores .store-detail");
+    const storeNumber = selectedStoreNumber(detail);
+    const existing = detail?.querySelector("[data-store-reference-setup]");
+    if (!detail || !storeNumber || (state.setupStoreNumber === storeNumber && existing)) return;
+    state.setupStoreNumber = storeNumber;
+    existing?.remove();
+    const { data: store } = await state.client
+      .from(STORE_TABLE)
+      .select("id, store_number, territory, assigned_to, volume_tier, active")
+      .eq("store_number", storeNumber)
+      .maybeSingle();
+    if (!store) return;
+    const form = document.createElement("section");
+    form.className = "store-admin-setup";
+    form.dataset.storeReferenceSetup = "true";
+    form.innerHTML = renderSetupForm(store);
+    form.addEventListener("submit", saveSetup);
+    const anchor = detail.querySelector(".store-detail-grid");
+    anchor ? detail.insertBefore(form, anchor) : detail.appendChild(form);
+  }
+
+  function selectedStoreNumber(detail) {
+    const text = detail?.querySelector(".store-number")?.textContent || "";
+    return text.replace("#", "").trim();
+  }
+
+  function renderSetupForm(store) {
+    return `
+      <div class="store-section-heading">
+        <div>
+          <h3>Store setup</h3>
+          <p>Assign this Home Depot reference store to a rep or territory.</p>
+        </div>
+      </div>
+      <form class="store-form" data-store-reference-setup-form>
+        <input type="hidden" name="storeId" value="${escapeHtml(store.id)}">
+        <div class="form-row">
+          <label>
+            Owner
+            <select name="assignedTo">
+              <option value="">Unassigned</option>
+              ${state.profiles.map((profile) => `<option value="${escapeHtml(profile.user_id)}" ${profile.user_id === store.assigned_to ? "selected" : ""}>${escapeHtml(profileName(profile))}</option>`).join("")}
+            </select>
+          </label>
+          <label>Territory<input name="territory" value="${escapeHtml(store.territory || "")}"></label>
+        </div>
+        <div class="form-row three">
+          <label>
+            Tier
+            <select name="volumeTier">
+              ${["A", "B", "C"].map((tier) => `<option value="${tier}" ${tier === store.volume_tier ? "selected" : ""}>${tier}</option>`).join("")}
+            </select>
+          </label>
+          <label class="checkbox-row"><input name="active" type="checkbox" ${store.active ? "checked" : ""}> Active</label>
+          <button class="button secondary" type="submit">Save Setup</button>
+        </div>
+      </form>
+    `;
+  }
+
+  async function saveSetup(event) {
+    event.preventDefault();
+    const form = event.target;
+    const data = Object.fromEntries(new FormData(form).entries());
+    const profile = state.profiles.find((item) => item.user_id === data.assignedTo);
+    const { error } = await state.client.from(STORE_TABLE).update({
+      assigned_to: data.assignedTo || null,
+      assigned_rep_name: profileName(profile) || null,
+      territory: String(data.territory || "").trim() || null,
+      volume_tier: normalizeTier(data.volumeTier),
+      active: data.active === "on"
+    }).eq("id", data.storeId);
+    if (error) return setStatus(error.message || "Could not save store setup.");
+    state.setupStoreNumber = "";
+    setStatus("Store setup saved.");
+    document.querySelector("[data-stores-refresh]")?.click();
   }
 
   function parseCsv(text) {
@@ -166,6 +259,19 @@
 
   function isAdmin() {
     return state.roles.includes("admin");
+  }
+
+  function profileName(profile) {
+    return profile?.full_name || profile?.email || "";
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   function setStatus(message) {
