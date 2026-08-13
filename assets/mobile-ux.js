@@ -117,7 +117,10 @@
   }
 
   function handleKeydown(event) {
-    if (event.key === "Escape") closeFilters();
+    if (event.key === "Escape") {
+      closeFilters();
+      closeStoreDetail();
+    }
   }
 
   function toggleFilters() {
@@ -180,7 +183,13 @@
   }
 
   async function loadStoreAdminData() {
-    if (!storeAdmin.client || !storeAdmin.session || storeAdmin.loading) return;
+    if (!storeAdmin.client || !storeAdmin.session) {
+      storeAdmin.roles = [];
+      storeAdmin.profiles = [];
+      storeAdmin.stores = new Map();
+      return;
+    }
+    if (storeAdmin.loading) return;
     storeAdmin.loading = true;
     try {
       const roleRows = await storeAdmin.client
@@ -190,7 +199,11 @@
       if (roleRows.error) throw roleRows.error;
       storeAdmin.roles = (roleRows.data || []).map((row) => row.role);
 
-      if (!canAssignStores()) return;
+      if (!canAssignStores()) {
+        storeAdmin.profiles = [];
+        storeAdmin.stores = new Map();
+        return;
+      }
 
       const [profiles, stores] = await Promise.all([
         storeAdmin.client.from("profiles").select("user_id, full_name, email, active").eq("active", true).order("full_name", { ascending: true }),
