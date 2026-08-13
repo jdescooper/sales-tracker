@@ -6,6 +6,7 @@ This CRM uses Supabase for shared lead records and email/password sign-in.
 
 - Signed-in users see the same shared pipeline.
 - Leads are stored in `public.crm_leads`.
+- Stores, store contacts, visit plans, and visit history are stored in `public.crm_stores`, `public.crm_store_contacts`, `public.crm_store_visit_plans`, and `public.crm_store_visits`.
 - Rep assignment is stored as both `assigned_to` and `assigned_rep_name`, so permissions follow the user profile while reports keep a readable rep name.
 - Browser storage remains only as a local cache and import safety net.
 - Reps do not delete leads in the app. Lost work is handled through the Lost / Cancelled stage and a required Lost Reason.
@@ -45,3 +46,13 @@ All active users can run the organization-level report function. It returns tota
 Removing a user from the Admin page deletes the auth user only if there is no CRM history tied to them. If they own leads or appear in CRM history, the profile is deactivated instead so reporting and audit trails remain intact.
 
 Users created from the Admin page are created with `email_confirm: true` through the `admin-users` Edge Function. They can sign in with the temporary password immediately, even if project-level email confirmation is enabled.
+
+## Store directory imports
+
+Admins can import store records from the Stores tab. The required key is `store_number`; re-importing the same number updates the existing store. Recommended columns are:
+
+```text
+store_number,name,street,city,state,zip,phone,source_url,territory,assigned_rep_email,tier
+```
+
+The repo includes `npm run stores:homedepot -- --states=IL,MO --out=home-depot-stores.csv` for converting accessible Home Depot directory pages into that CSV shape. Home Depot may block automated requests, so the live CRM does not scrape their website from users' browsers.

@@ -49,6 +49,18 @@ https://jdescooper.github.io/sales-tracker/
 node tests/reporting.test.mjs
 ```
 
+## Stores
+
+The Stores tab tracks big-box retail coverage separately from the lead pipeline. Admins can import/update Home Depot stores by CSV using `store_number` as the dedupe key, then assign each store to a rep and territory. Store visits, weekly suggested plans, contact roles, missing contacts, and freshness are stored in Supabase.
+
+To prepare a Home Depot directory CSV from an environment that can access the public directory pages:
+
+```bash
+npm run stores:homedepot -- --states=IL,MO --out=home-depot-stores.csv
+```
+
+Home Depot may block automated directory requests. If that happens, use the admin import panel with CSV columns such as `store_number,name,street,city,state,zip,phone,source_url,territory,assigned_rep_email,tier`.
+
 ## Shared backend and users
 
 The app now supports Supabase Auth and a shared `crm_leads` backend. Until Supabase is configured, it clearly runs in local browser mode.

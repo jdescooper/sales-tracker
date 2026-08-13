@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "dev": "node scripts/serve.mjs",
-    "test": "node tests/reporting.test.mjs"
+    "test": "node tests/reporting.test.mjs",
+    "stores:homedepot": "node scripts/homedepot-directory-to-csv.mjs"
   },
   "engines": {
     "node": ">=20"
