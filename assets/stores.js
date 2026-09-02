@@ -23,13 +23,15 @@
     plans: [],
     rollups: [],
     selectedStoreId: "",
+    detailOpen: false,
     visible: false,
     loading: false,
     message: "",
     importOpen: false,
     filters: {
       search: "",
-      freshness: "all"
+      freshness: "all",
+      owner: "all"
     },
     weekStart: mondayOf(today())
   };
@@ -50,6 +52,7 @@
   }
 
   function createClient() {
+    if (window.__CIS_SUPABASE_CLIENT__) return window.__CIS_SUPABASE_CLIENT__;
     const config = window.CIS_CONFIG || {};
     if (!window.supabase || !config.supabaseUrl || !config.supabaseAnonKey) return null;
     return window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
@@ -254,7 +257,7 @@
     }
 
     const stores = filteredStores();
-    const selected = state.stores.find((store) => store.id === state.selectedStoreId) || stores[0] || null;
+    const selected = stores.find((store) => store.id === state.selectedStoreId) || stores[0] || null;
     if (selected && state.selectedStoreId !== selected.id) state.selectedStoreId = selected.id;
     const metrics = storeMetrics(stores);
     if (count) count.textContent = `${stores.length} ${stores.length === 1 ? "store" : "stores"}`;
@@ -282,6 +285,14 @@
             ${option("overdue", "Overdue", state.filters.freshness)}
           </select>
         </label>
+        ${isManagerOrAdmin() ? `
+          <label>
+            Owner
+            <select id="stores-owner">
+              ${profileFilterOptions(state.filters.owner)}
+            </select>
+          </label>
+        ` : ""}
         <label>
           Week
           <input id="stores-week-start" type="date" value="${escapeHtml(state.weekStart)}">
@@ -294,11 +305,16 @@
       </section>
       ${renderWeekPlanner()}
       ${isAdmin() && state.importOpen ? renderImportPanel() : ""}
-      <div class="stores-layout">
+      ${selected ? `<button class="store-detail-backdrop ${state.detailOpen ? "is-open" : ""}" data-close-store-detail type="button" aria-label="Close store details"></button>` : ""}
+      <div class="stores-layout ${state.detailOpen && selected ? "is-detail-open" : ""}">
         <section class="stores-list" aria-label="Store list">
+          <div class="stores-list-head">
+            <h3>Stores</h3>
+            <strong>${stores.length}</strong>
+          </div>
           ${stores.length ? stores.map((store) => renderStoreCard(store, selected?.id === store.id)).join("") : renderEmpty("No stores match the current filters.")}
         </section>
-        <section class="store-detail" aria-label="Store details">
+        <section class="store-detail" aria-label="Store details" ${state.detailOpen ? `role="dialog" aria-modal="true"` : ""}>
           ${selected ? renderStoreDetail(selected) : renderEmpty("Select a store to see contacts and visits.")}
         </section>
       </div>
@@ -384,11 +400,23 @@
           <div><dt>Territory</dt><dd>${escapeHtml(store.territory || "No territory")}</dd></div>
           <div><dt>Phone</dt><dd>${escapeHtml(store.phone || "No phone")}</dd></div>
         </dl>
+        ${isManagerOrAdmin() ? renderStoreCardAssignment(store) : ""}
         <div class="quick-actions">
           <button class="text-button" data-store-log="${escapeHtml(store.id)}" type="button">Log Visit</button>
           <button class="text-button" data-plan-store="${escapeHtml(store.id)}" type="button">Plan</button>
         </div>
       </article>
+    `;
+  }
+
+  function renderStoreCardAssignment(store) {
+    return `
+      <label class="store-card-owner">
+        <span>Owner</span>
+        <select data-store-owner-select data-store-id="${escapeHtml(store.id)}">
+          ${profileOptions(store.assignedTo, true)}
+        </select>
+      </label>
     `;
   }
 
@@ -405,7 +433,10 @@
           ${store.phone ? `<p>${escapeHtml(store.phone)}</p>` : ""}
           ${store.sourceUrl ? `<p><a href="${escapeHtml(store.sourceUrl)}" target="_blank" rel="noopener">Home Depot directory page</a></p>` : ""}
         </div>
-        <span class="age-pill ${escapeHtml(freshnessFor(store).status)}">${escapeHtml(freshnessFor(store).label)}</span>
+        <div class="store-detail-tools">
+          <span class="age-pill ${escapeHtml(freshnessFor(store).status)}">${escapeHtml(freshnessFor(store).label)}</span>
+          <button class="icon-button store-detail-close" data-close-store-detail type="button" aria-label="Close store details">X</button>
+        </div>
       </div>
       ${missing.length ? `<p class="stores-alert">Missing contacts: ${missing.map((role) => escapeHtml(role.label)).join(", ")}</p>` : ""}
       <div class="store-detail-grid">
@@ -496,8 +527,18 @@
   }
 
   function handleStoresChange(event) {
+    const ownerSelect = event.target.closest("[data-store-owner-select]");
+    if (ownerSelect) {
+      quickAssignStore(ownerSelect.dataset.storeId, ownerSelect.value);
+      return;
+    }
     if (event.target.id === "stores-freshness") {
       state.filters.freshness = event.target.value;
+      renderStores();
+    }
+    if (event.target.id === "stores-owner") {
+      state.filters.owner = event.target.value;
+      state.detailOpen = false;
       renderStores();
     }
     if (event.target.id === "stores-week-start") {
@@ -507,17 +548,24 @@
   }
 
   function handleStoresClick(event) {
+    if (event.target.closest("[data-close-store-detail]")) {
+      state.detailOpen = false;
+      renderStores();
+      return;
+    }
     const select = event.target.closest("[data-store-select]");
     if (select) {
       state.selectedStoreId = select.dataset.storeSelect;
+      state.detailOpen = true;
       renderStores();
       return;
     }
     const log = event.target.closest("[data-store-log]");
     if (log) {
       state.selectedStoreId = log.dataset.storeLog;
+      state.detailOpen = true;
       renderStores();
-      document.getElementById("store-visit-form")?.scrollIntoView({ block: "nearest" });
+      window.requestAnimationFrame(() => document.getElementById("store-visit-form")?.scrollIntoView({ block: "start" }));
       return;
     }
     const plan = event.target.closest("[data-plan-store]");
@@ -766,6 +814,7 @@
     const query = state.filters.search.trim().toLowerCase();
     return state.stores.filter((store) => {
       if (state.filters.freshness !== "all" && freshnessFor(store).status !== state.filters.freshness) return false;
+      if (state.filters.owner !== "all" && (state.filters.owner === "unassigned" ? store.assignedTo : store.assignedTo !== state.filters.owner)) return false;
       if (!query) return true;
       const contacts = contactsFor(store.id).map((contact) => contact.full_name).join(" ");
       return [
@@ -1181,6 +1230,17 @@
     return `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(label)}</option>`;
   }
 
+  function profileOptions(selected, includeUnassigned = false) {
+    const profiles = state.profiles
+      .filter((profile) => profile.active || profile.user_id === selected)
+      .sort((a, b) => profileName(a).localeCompare(profileName(b)));
+    return `${includeUnassigned ? `<option value="" ${!selected ? "selected" : ""}>Unassigned</option>` : ""}${profiles.map((profile) => `<option value="${escapeHtml(profile.user_id)}" ${profile.user_id === selected ? "selected" : ""}>${escapeHtml(profileName(profile))}</option>`).join("")}`;
+  }
+
+  function profileFilterOptions(selected) {
+    return `<option value="all" ${selected === "all" ? "selected" : ""}>All owners</option><option value="unassigned" ${selected === "unassigned" ? "selected" : ""}>Unassigned</option>${profileOptions(selected, false)}`;
+  }
+
   function renderEmpty(message) {
     return `<p class="empty-state">${escapeHtml(message)}</p>`;
   }
@@ -1245,10 +1305,13 @@
       .store-metric span{color:var(--muted);font-size:.78rem;font-weight:850}
       .store-metric strong{font-size:1.15rem}
       .store-toolbar,.store-import,.store-week{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff}
-      .store-toolbar{grid-template-columns:minmax(220px,1.4fr) minmax(140px,.7fr) minmax(140px,.7fr) auto;align-items:end}
+      .store-toolbar{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end}
       .store-toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
       .stores-layout{display:grid;grid-template-columns:minmax(300px,.9fr) minmax(420px,1.1fr);gap:12px;min-width:0}
       .stores-list,.store-detail{display:grid;align-content:start;gap:10px;min-width:0}
+      .stores-list-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 2px}
+      .stores-list-head h3{margin:0;font-size:1rem}
+      .stores-list-head strong{display:inline-grid;place-items:center;min-width:34px;height:28px;padding:0 8px;border-radius:999px;background:var(--panel-soft);color:var(--muted)}
       .store-card,.contact-role,.week-plan-item{min-width:0;border:1px solid var(--line);border-radius:8px;background:#fff}
       .store-card{display:grid;gap:10px;padding:10px;border-left:4px solid var(--line-strong)}
       .store-card.is-selected{border-color:#ffc77d;box-shadow:0 0 0 2px rgba(255,133,0,.16)}
@@ -1262,16 +1325,27 @@
       .store-facts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
       .store-facts dt{color:var(--quiet);font-size:.7rem;font-weight:900;text-transform:uppercase}
       .store-facts dd{margin:2px 0 0;overflow-wrap:anywhere}
+      .store-card-owner{display:grid;gap:4px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--panel-soft)}
+      .store-card-owner span{color:var(--quiet);font-size:.72rem;font-weight:900;text-transform:uppercase}
+      .store-card-owner select{min-height:36px;padding:7px 9px;background:#fff}
+      .store-detail-backdrop,.store-detail-close{display:none}
       .store-detail{padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff}
       .store-detail-heading,.store-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
       .store-detail-heading h3,.store-section-heading h3{margin:0;font-size:1rem}
       .store-section-heading p{margin:3px 0 0;color:var(--muted);font-size:.86rem}
+      .store-detail-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
       .store-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;min-width:0}
       .contact-grid{display:grid;gap:8px;margin:10px 0}
       .contact-role{display:grid;gap:3px;padding:9px;background:var(--panel-soft)}
       .contact-role.is-missing{border-color:#ffb2b2;background:var(--red-soft)}
       .contact-role small{color:var(--muted)}
       .store-form,.store-role-form{display:grid;gap:10px;min-width:0}
+      .store-admin-setup{display:grid;gap:10px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel-soft)}
+      .store-admin-setup .store-form{gap:8px}
+      .store-admin-setup input,.store-admin-setup select{min-height:36px;padding:7px 9px}
+      .store-admin-setup input[type="checkbox"]{width:18px;min-height:18px;height:18px;padding:0}
+      .store-admin-setup .checkbox-row{display:flex;align-items:center;gap:8px}
+      .store-admin-setup .button{justify-self:start;min-height:36px;padding:0 12px}
       .store-role-form{grid-template-columns:minmax(220px,1fr) auto;align-items:end;margin-top:10px}
       .store-visit-list{display:grid;gap:8px;margin:12px 0 0;padding-left:20px}
       .store-visit-list li{padding-bottom:8px;border-bottom:1px solid var(--line)}
@@ -1281,7 +1355,8 @@
       .week-plan-item.visited{background:var(--green-soft)}
       .stores-alert{margin:0;padding:10px 12px;border:1px solid #ffc77d;border-radius:8px;background:var(--orange-soft);color:#7a4100;font-weight:800}
       @media(max-width:980px){.store-toolbar,.stores-layout,.store-detail-grid{grid-template-columns:1fr}.store-toolbar-actions{justify-content:stretch}.store-toolbar-actions .button{flex:1 1 150px}.store-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.week-plan-item{grid-template-columns:1fr}}
-      @media(max-width:560px){.store-metrics,.store-facts{grid-template-columns:1fr}.stores-heading-actions{justify-content:stretch}}
+      @media(max-width:760px){.store-toolbar{position:sticky;top:110px;z-index:22}.store-toolbar-actions{display:grid;grid-template-columns:1fr 1fr}.store-toolbar-actions .button{min-width:0}.stores-layout{display:block}.stores-list{display:grid}.stores-layout .store-detail{display:none}.store-detail-backdrop.is-open{position:fixed;inset:0;z-index:88;display:block;border:0;background:rgba(12,18,24,.52)}.stores-layout.is-detail-open .store-detail{position:fixed;inset:0;z-index:92;display:grid;max-height:none;overflow:auto;padding:12px 12px calc(18px + env(safe-area-inset-bottom));border:0;border-radius:0;box-shadow:none}.stores-layout.is-detail-open .store-detail-heading{position:sticky;top:-12px;z-index:2;margin:-12px -12px 0;padding:12px;border-bottom:1px solid var(--line);background:#fff}.stores-layout.is-detail-open .store-detail-close{display:grid;place-items:center}.store-detail-tools{justify-content:space-between}.store-card-owner{grid-template-columns:72px minmax(0,1fr);align-items:center}.store-card-owner span{font-size:.68rem}.store-card-owner select{width:100%;min-width:0}.store-form .form-row,.store-form .form-row.three{grid-template-columns:1fr}.contact-role{padding:10px}.store-visit-list{padding-left:18px}}
+      @media(max-width:560px){.store-metrics,.store-facts{grid-template-columns:1fr}.stores-heading-actions{justify-content:stretch}.store-toolbar-actions{grid-template-columns:1fr}}
     `;
     document.head.appendChild(style);
   }

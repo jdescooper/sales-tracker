@@ -12,70 +12,8 @@
     reportTimer: 0
   };
 
-  patchSupabaseClient();
   injectStyles();
   onReady(start);
-
-  function patchSupabaseClient() {
-    if (!window.supabase || typeof window.supabase.createClient !== "function" || window.supabase.__cisAccessPatched) return;
-    const originalCreateClient = window.supabase.createClient.bind(window.supabase);
-    const wrapped = new WeakMap();
-    window.supabase.createClient = function createCisClient(...args) {
-      const client = originalCreateClient(...args);
-      if (wrapped.has(client)) return wrapped.get(client);
-      const proxy = new Proxy(client, {
-        get(target, prop, receiver) {
-          if (prop === "from") {
-            return (table) => {
-              const builder = target.from(table);
-              return table === "crm_leads" ? wrapLeadBuilder(target, builder) : builder;
-            };
-          }
-          return Reflect.get(target, prop, receiver);
-        }
-      });
-      wrapped.set(client, proxy);
-      return proxy;
-    };
-    window.supabase.__cisAccessPatched = true;
-  }
-
-  function wrapLeadBuilder(client, builder) {
-    return new Proxy(builder, {
-      get(target, prop, receiver) {
-        if (prop === "upsert" || prop === "insert") {
-          return async (payload, options) => {
-            const patched = await addCurrentOwner(client, payload);
-            return target[prop](patched, options);
-          };
-        }
-        return Reflect.get(target, prop, receiver);
-      }
-    });
-  }
-
-  async function addCurrentOwner(client, payload) {
-    const userId = await getCurrentUserId(client);
-    if (!userId) return payload;
-    const patchRow = (row) => {
-      if (!row || typeof row !== "object") return row;
-      return {
-        ...row,
-        assigned_to: row.assigned_to || userId,
-        updated_by: userId
-      };
-    };
-    return Array.isArray(payload) ? payload.map(patchRow) : patchRow(payload);
-  }
-
-  async function getCurrentUserId(client) {
-    try {
-      const { data } = await client.auth.getSession();
-      return data.session?.user?.id || "";
-    } catch {
-      return "";
-    }
-  }
 
   async function start() {
     state.client = createClient();
@@ -90,6 +28,7 @@
   }
 
   function createClient() {
+    if (window.__CIS_SUPABASE_CLIENT__) return window.__CIS_SUPABASE_CLIENT__;
     const config = window.CIS_CONFIG || {};
     if (!window.supabase || !config.supabaseUrl || !config.supabaseAnonKey) return null;
     return window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {

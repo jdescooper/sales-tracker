@@ -4,10 +4,31 @@
   const STORAGE_VERSION = 3;
   const config = window.CIS_CONFIG || {};
   const hasClient = window.supabase && config.supabaseUrl && config.supabaseAnonKey;
-  const client = hasClient ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
+  const client = hasClient
+    ? (window.__CIS_SUPABASE_CLIENT__ || window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      }))
+    : null;
+  if (client) window.__CIS_SUPABASE_CLIENT__ = client;
   const originalSetItem = window.localStorage.setItem.bind(window.localStorage);
   const originalRemoveItem = window.localStorage.removeItem.bind(window.localStorage);
-  const state = { session: null, loading: false, syncTimer: 0, suppressSync: false, backupCount: 0 };
+  const state = {
+    session: null,
+    profile: null,
+    loading: false,
+    syncTimer: 0,
+    suppressSync: false,
+    suppressNextStorageSync: false,
+    backupCount: 0
+  };
+
+  window.CISBackend = {
+    client,
+    isConfigured: () => Boolean(client),
+    isConnected: () => Boolean(state.session),
+    getCurrentUser,
+    saveLead: saveLeadToBackend
+  };
 
   injectStyles();
   init();
@@ -165,11 +186,13 @@
   async function ensureProfile() {
     const user = state.session && state.session.user;
     if (!user) return;
-    await client.from("profiles").upsert({
+    const { data, error } = await client.from("profiles").upsert({
       user_id: user.id,
       email: user.email || "",
       full_name: user.user_metadata?.full_name || (user.email || "CRM user").split("@")[0]
-    }, { onConflict: "user_id" });
+    }, { onConflict: "user_id" }).select("user_id, full_name, email").single();
+    if (error) throw error;
+    state.profile = data || null;
   }
 
   async function loadRemoteLeads() {
@@ -183,8 +206,35 @@
     window.__CIS_STORAGE_PATCHED__ = true;
     window.localStorage.setItem = function (key, value) {
       originalSetItem(key, value);
-      if (key === STORAGE_KEY && state.session && !state.suppressSync) queueSync(value);
+      if (key !== STORAGE_KEY || !state.session || state.suppressSync) return;
+      if (state.suppressNextStorageSync) {
+        state.suppressNextStorageSync = false;
+        return;
+      }
+      queueSync(value);
     };
+  }
+
+  async function saveLeadToBackend(lead) {
+    if (!state.session) {
+      return { mode: "local", lead };
+    }
+
+    const row = leadToRow(lead);
+    if (!row) throw new Error("Enter a customer before saving this lead.");
+    row.assigned_to = row.assigned_to || state.session.user.id;
+    row.updated_by = state.session.user.id;
+
+    const { data, error } = await client
+      .from("crm_leads")
+      .upsert(row, { onConflict: "external_lead_id" })
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    state.suppressNextStorageSync = true;
+    renderConnected("Shared backend saved.");
+    return { mode: "shared", lead: leadFromRow(data) };
   }
 
   function queueSync(value) {
@@ -269,6 +319,7 @@
       job_city: nullable(lead.city),
       job_state: nullable(lead.state),
       job_zip: nullable(lead.zipCode),
+      assigned_to: nullable(lead.assignedTo) || state.session?.user?.id || null,
       assigned_rep_name: text(lead.repName) || "Unassigned",
       stage_id: text(lead.stageId) || "intake_measure_prep",
       stage_entered_at: dateOrToday(lead.stageEnteredAt || lead.dateReceived),
@@ -315,6 +366,7 @@
       address: row.job_address || "",
       storeNumber: row.store_number || "",
       productType: row.product_type || "",
+      assignedTo: row.assigned_to || "",
       stageId: row.stage_id,
       stageEnteredAt: row.stage_entered_at,
       dateReceived: row.date_received,
@@ -344,7 +396,7 @@
     if (window.__CIS_APP_LOADING__) return;
     window.__CIS_APP_LOADING__ = true;
     const script = document.createElement("script");
-    script.src = "assets/app.js";
+    script.src = "assets/app.js?v=20260902-1";
     script.addEventListener("load", () => {
       if (document.readyState !== "loading" && !window.__CIS_APP_READY_DISPATCHED__) {
         window.__CIS_APP_READY_DISPATCHED__ = true;
@@ -352,6 +404,16 @@
       }
     });
     document.body.appendChild(script);
+  }
+
+  function getCurrentUser() {
+    if (!state.session?.user) return null;
+    const user = state.session.user;
+    return {
+      id: user.id,
+      email: user.email || "",
+      name: state.profile?.full_name || user.user_metadata?.full_name || (user.email || "CRM user").split("@")[0]
+    };
   }
 
   function text(value) { return String(value || "").trim(); }

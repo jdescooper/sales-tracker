@@ -9,11 +9,12 @@ const corsHeaders = {
 type AppRole = "admin" | "manager" | "rep";
 
 type AdminRequest = {
-  action?: "list" | "create" | "update" | "delete";
+  action?: "list" | "create" | "update" | "delete" | "reset_password";
   userId?: string;
   email?: string;
   password?: string;
   fullName?: string;
+  phone?: string;
   active?: boolean;
   roles?: AppRole[];
 };
@@ -47,6 +48,12 @@ Deno.serve(async (req) => {
       if (!body.userId) return jsonResponse({ error: "Missing user id." }, 400);
       await updateUser(actor.id, body);
       return jsonResponse({ users: await listUsers(), message: "User updated." });
+    }
+
+    if (body.action === "reset_password") {
+      if (!body.userId) return jsonResponse({ error: "Missing user id." }, 400);
+      await resetPassword(body);
+      return jsonResponse({ users: await listUsers(), message: "Password updated." });
     }
 
     if (body.action === "delete") {
@@ -109,7 +116,7 @@ async function listUsers() {
 
   const { data: profiles, error: profilesError } = await adminClient
     .from("profiles")
-    .select("user_id, full_name, email, active, created_at, updated_at")
+    .select("user_id, full_name, email, phone, active, created_at, updated_at")
     .order("full_name", { ascending: true });
   if (profilesError) throw profilesError;
 
@@ -132,6 +139,7 @@ async function listUsers() {
       userId: user.id,
       email: profile?.email || user.email || "",
       fullName: profile?.full_name || user.user_metadata?.full_name || (user.email || "").split("@")[0],
+      phone: profile?.phone || user.user_metadata?.phone || "",
       active: profile?.active !== false,
       roles: normalizeRoles(roleMap.get(user.id)),
       emailConfirmed: Boolean(user.email_confirmed_at),
@@ -145,6 +153,7 @@ async function createUser(body: AdminRequest) {
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
   const fullName = String(body.fullName || "").trim() || email.split("@")[0];
+  const phone = String(body.phone || "").trim();
   const roles = normalizeRoles(body.roles);
 
   if (!email) throw new AdminError("Email is required.", 400);
@@ -154,7 +163,7 @@ async function createUser(body: AdminRequest) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { full_name: fullName }
+    user_metadata: { full_name: fullName, phone }
   });
   if (error) throw error;
 
@@ -167,6 +176,7 @@ async function createUser(body: AdminRequest) {
       user_id: userId,
       email,
       full_name: fullName,
+      phone: phone || null,
       active: body.active !== false,
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id" });
@@ -181,16 +191,33 @@ async function createUser(body: AdminRequest) {
 
 async function updateUser(actorId: string, body: AdminRequest) {
   const userId = String(body.userId || "");
+  const email = String(body.email || "").trim().toLowerCase();
+  const fullName = String(body.fullName || "").trim();
+  const phone = String(body.phone || "").trim();
+  const active = typeof body.active === "boolean" ? body.active : true;
   const roles = normalizeRoles(body.roles);
+  if (!email) throw new AdminError("Email is required.", 400);
   if (actorId === userId && !roles.includes("admin")) {
     throw new AdminError("You cannot remove your own admin permission.", 400);
   }
+  if (actorId === userId && !active) {
+    throw new AdminError("You cannot deactivate your own admin profile.", 400);
+  }
+
+  const { error: authError } = await adminClient.auth.admin.updateUserById(userId, {
+    email,
+    email_confirm: true,
+    user_metadata: { full_name: fullName || email.split("@")[0], phone }
+  });
+  if (authError) throw authError;
 
   const { error: profileError } = await adminClient
     .from("profiles")
     .update({
-      full_name: String(body.fullName || "").trim() || null,
-      active: body.active !== false,
+      full_name: fullName || null,
+      email,
+      phone: phone || null,
+      active,
       updated_at: new Date().toISOString()
     })
     .eq("user_id", userId);
@@ -206,6 +233,15 @@ async function updateUser(actorId: string, body: AdminRequest) {
     .from("user_roles")
     .insert(roles.map((role) => ({ user_id: userId, role })));
   if (insertRolesError) throw insertRolesError;
+}
+
+async function resetPassword(body: AdminRequest) {
+  const userId = String(body.userId || "");
+  const password = String(body.password || "");
+  if (password.length < 6) throw new AdminError("Password must be at least 6 characters.", 400);
+
+  const { error } = await adminClient.auth.admin.updateUserById(userId, { password });
+  if (error) throw error;
 }
 
 async function deleteOrDeactivateUser(actorId: string, userId: string) {

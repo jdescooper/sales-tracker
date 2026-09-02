@@ -225,24 +225,28 @@ function hydrateLeadForm(lead) {
 }
 
 function hydrateRepChoice(selectedRep) {
+  const currentUser = window.CISBackend?.getCurrentUser?.();
+  const effectiveSelection = selectedRep || currentUser?.name || "";
   const reps = getKnownReps();
   const select = document.getElementById("rep-choice");
-  const knownSelected = reps.includes(selectedRep);
+  const knownSelected = reps.includes(effectiveSelection);
   select.innerHTML = [
     '<option value="">Select rep</option>',
     ...reps.map((rep) => `<option value="${escapeHtml(rep)}">${escapeHtml(rep)}</option>`),
     '<option value="__new__">Add a rep...</option>'
   ].join("");
-  select.value = selectedRep && knownSelected ? selectedRep : selectedRep ? "__new__" : "";
-  document.getElementById("lead-form").elements.repName.value = selectedRep && !knownSelected ? selectedRep : "";
+  select.value = effectiveSelection && knownSelected ? effectiveSelection : effectiveSelection ? "__new__" : "";
+  document.getElementById("lead-form").elements.repName.value = effectiveSelection && !knownSelected ? effectiveSelection : "";
   toggleNewRepField();
 }
 
 function getKnownReps() {
+  const currentUser = window.CISBackend?.getCurrentUser?.();
   return Array.from(new Set([
     ...DEFAULT_REPS,
+    currentUser?.name,
     ...state.leads.map((lead) => lead.repName).filter(Boolean)
-  ])).sort((a, b) => a.localeCompare(b));
+  ].filter(Boolean))).sort((a, b) => a.localeCompare(b));
 }
 
 function toggleNewRepField() {
@@ -648,13 +652,15 @@ function handleDocumentChange(event) {
   }
 }
 
-function saveLeadFromForm(event) {
+async function saveLeadFromForm(event) {
   event.preventDefault();
   const form = event.currentTarget;
   clearErrors(form, document.getElementById("lead-error-summary"));
 
   const data = Object.fromEntries(new FormData(form).entries());
-  const repName = data.repChoice === "__new__" ? data.repName : data.repChoice;
+  const currentUser = window.CISBackend?.getCurrentUser?.();
+  data.externalLeadId = data.externalLeadId?.trim() || createTemporaryLeadId();
+  const repName = (data.repChoice === "__new__" ? data.repName : data.repChoice) || currentUser?.name || "Unassigned";
   const errors = validateLeadForm(data, repName);
   if (errors.length) {
     showErrors(form, document.getElementById("lead-error-summary"), errors);
@@ -666,6 +672,7 @@ function saveLeadFromForm(event) {
     ...existing,
     ...data,
     repName,
+    assignedTo: existing?.assignedTo || (repName === currentUser?.name ? currentUser.id : ""),
     id: data.id || createId(),
     stageId: existing?.stageId || "intake_measure_prep",
     dateReceived: data.dateReceived,
@@ -674,29 +681,58 @@ function saveLeadFromForm(event) {
     paymentStatus: existing?.paymentStatus || "Not requested"
   });
 
-  const index = state.leads.findIndex((item) => item.id === lead.id);
-  if (index >= 0) {
+  const existingIndex = state.leads.findIndex((item) => item.id === lead.id);
+  if (existingIndex >= 0) {
     recordActivity(lead, "updated", "Lead intake updated");
-    state.leads[index] = lead;
-  } else {
-    state.leads.unshift(lead);
   }
-  saveLeads();
-  state.formDirty = false;
-  closeLeadModal();
-  showStatus("Lead saved.", false);
-  render();
+
+  setLeadFormSaving(form, true);
+  try {
+    const connected = Boolean(window.CISBackend?.isConnected?.());
+    const result = connected
+      ? await window.CISBackend.saveLead(lead)
+      : { mode: "local", lead };
+    const savedLead = normalizeLead(result.lead || lead);
+    const index = state.leads.findIndex((item) => item.id === lead.id || item.externalLeadId === savedLead.externalLeadId);
+    if (index >= 0) state.leads[index] = savedLead;
+    else state.leads.unshift(savedLead);
+
+    saveLeads();
+    state.formDirty = false;
+    closeLeadModal();
+    showStatus(
+      result.mode === "shared"
+        ? "Lead saved to the shared CRM."
+        : "Lead saved on this device. Sign in to sync it with the team.",
+      false
+    );
+    render();
+  } catch (error) {
+    showErrors(form, document.getElementById("lead-error-summary"), [{
+      field: "",
+      message: error.message || "The lead could not be saved. Your entries are still in the form."
+    }]);
+  } finally {
+    setLeadFormSaving(form, false);
+  }
 }
 
 function validateLeadForm(data, repName) {
   const errors = [];
-  if (!data.externalLeadId?.trim()) errors.push({ field: "externalLeadId", message: "Measure Work Order Number is required." });
   if (!data.customerName?.trim()) errors.push({ field: "customerName", message: "Customer is required." });
   if (!data.repChoice) errors.push({ field: "repChoice", message: "Assigned rep is required." });
   if (data.repChoice === "__new__" && !repName?.trim()) errors.push({ field: "repName", message: "Enter the new rep name." });
   if (!data.dateReceived) errors.push({ field: "dateReceived", message: "Received date is required." });
   if (data.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.contactEmail)) errors.push({ field: "contactEmail", message: "Enter a valid email address." });
   return errors;
+}
+
+function setLeadFormSaving(form, saving) {
+  const button = form.querySelector('[type="submit"]');
+  if (!button) return;
+  button.disabled = saving;
+  button.textContent = saving ? "Saving..." : "Save Lead";
+  form.setAttribute("aria-busy", String(saving));
 }
 
 function openLeadModal(trigger, lead) {
@@ -1415,6 +1451,12 @@ function findLead(id) {
 function createId() {
   if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
   return `lead-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function createTemporaryLeadId() {
+  const date = TODAY().replace(/-/g, "");
+  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, "0");
+  return `TEMP-${date}-${suffix}`;
 }
 
 function exportReportCsv() {

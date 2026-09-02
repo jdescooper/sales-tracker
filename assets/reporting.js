@@ -130,6 +130,7 @@
       source: normalizeText(safeLead.source) || "HDSC",
       jobPath: normalizeText(safeLead.jobPath) || "SFI",
       customerName: normalizeText(safeLead.customerName),
+      assignedTo: normalizeText(safeLead.assignedTo),
       repName: normalizeText(safeLead.repName) || "Unassigned",
       contactPhone: normalizeText(safeLead.contactPhone || safeLead.customerPhone),
       contactEmail: normalizeText(safeLead.contactEmail || safeLead.customerEmail),

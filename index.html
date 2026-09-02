@@ -135,8 +135,9 @@
             <h3>Lead basics</h3>
             <div class="form-row">
               <label>
-                <span>Measure Work Order Number <strong aria-hidden="true">*</strong></span>
-                <input name="externalLeadId" autocomplete="off" required>
+                <span>Measure Work Order Number</span>
+                <input name="externalLeadId" autocomplete="off" placeholder="Optional — a temporary ID will be created">
+                <small>Leave this blank if the measure work order has not been issued yet.</small>
                 <small class="field-error" data-error-for="externalLeadId"></small>
               </label>
               <label>
@@ -327,15 +328,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="assets/config.js"></script>
-    <script src="assets/reporting.js?v=20260813-2"></script>
-    <script src="assets/access-overlay.js?v=20260810-2"></script>
-    <script src="assets/auth-loop-fix.js?v=20260810-1"></script>
-    <script src="assets/backend-bridge.js?v=20260813-2"></script>
+    <script src="assets/reporting.js?v=20260902-1"></script>
+    <script src="assets/backend-bridge.js?v=20260902-1"></script>
+    <script src="assets/access-overlay.js?v=20260902-1"></script>
     <script src="assets/pipeline-unified.js?v=20260810-1"></script>
-    <script src="assets/stores.js?v=20260813-4"></script>
+    <script src="assets/stores.js?v=20260902-1"></script>
     <script src="assets/stores-reference.js?v=20260813-3"></script>
-    <script src="assets/admin-console.js?v=20260813-2"></script>
-    <script src="assets/auth-lock.js?v=20260810-1"></script>
+    <script src="assets/admin-console.js?v=20260902-1"></script>
     <script src="assets/mobile-ux.js?v=20260813-2"></script>
   </body>
 </html>
