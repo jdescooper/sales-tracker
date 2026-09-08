@@ -163,7 +163,7 @@
   async function initStoreAdmin() {
     const config = window.CIS_CONFIG || {};
     if (!window.supabase || !config.supabaseUrl || !config.supabaseAnonKey) return;
-    storeAdmin.client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+    storeAdmin.client = window.__CIS_SUPABASE_CLIENT__ || window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     });
 
@@ -175,10 +175,13 @@
       storeAdmin.session = null;
     }
 
-    storeAdmin.client.auth.onAuthStateChange(async (_event, session) => {
+    storeAdmin.client.auth.onAuthStateChange((_event, session) => {
       storeAdmin.session = session || null;
-      await loadStoreAdminData();
-      enhanceStoresAndAdmin();
+      window.setTimeout(() => {
+        loadStoreAdminData()
+          .then(enhanceStoresAndAdmin)
+          .catch(() => {});
+      }, 0);
     });
   }
 

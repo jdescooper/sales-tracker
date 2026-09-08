@@ -672,7 +672,7 @@ async function saveLeadFromForm(event) {
     ...existing,
     ...data,
     repName,
-    assignedTo: existing?.assignedTo || (repName === currentUser?.name ? currentUser.id : ""),
+    assignedTo: existing?.assignedTo || currentUser?.id || "",
     id: data.id || createId(),
     stageId: existing?.stageId || "intake_measure_prep",
     dateReceived: data.dateReceived,

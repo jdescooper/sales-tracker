@@ -46,7 +46,7 @@
     if (state.client) {
       state.client.auth.onAuthStateChange((_event, session) => {
         state.session = session || null;
-        refreshData({ silent: true });
+        window.setTimeout(() => refreshData({ silent: true }), 0);
       });
     }
   }

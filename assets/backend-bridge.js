@@ -19,6 +19,7 @@
     syncTimer: 0,
     suppressSync: false,
     suppressNextStorageSync: false,
+    reloadQueued: false,
     backupCount: 0
   };
 
@@ -49,11 +50,10 @@
       if (error) throw error;
       state.session = data.session || null;
       client.auth.onAuthStateChange((event, session) => {
+        const wasSignedIn = Boolean(state.session);
         state.session = session || null;
-        if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
-        if (["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED", "PASSWORD_RECOVERY"].includes(event)) {
-          window.location.reload();
-        }
+        if (event === "SIGNED_OUT" && wasSignedIn) reloadApp();
+        if (event === "USER_UPDATED") reloadApp();
       });
 
       if (!state.session) {
@@ -169,7 +169,8 @@
         : await client.auth.signInWithPassword({ email, password });
       if (response.error) throw response.error;
       if (response.data.session) {
-        window.location.reload();
+        state.session = response.data.session;
+        reloadApp();
       } else {
         renderSignIn("User created. If email confirmation is enabled, confirm the email and then sign in.");
       }
@@ -180,7 +181,8 @@
 
   async function signOut() {
     await client.auth.signOut();
-    window.location.reload();
+    state.session = null;
+    reloadApp();
   }
 
   async function ensureProfile() {
@@ -220,10 +222,17 @@
       return { mode: "local", lead };
     }
 
+    const { data: authData, error: authError } = await client.auth.getUser();
+    if (authError || !authData.user) {
+      state.session = null;
+      throw new Error("Your sign-in expired. Sign in again before saving this lead.");
+    }
+
+    const currentUserId = authData.user.id;
     const row = leadToRow(lead);
     if (!row) throw new Error("Enter a customer before saving this lead.");
-    row.assigned_to = row.assigned_to || state.session.user.id;
-    row.updated_by = state.session.user.id;
+    row.assigned_to = row.assigned_to || currentUserId;
+    row.updated_by = currentUserId;
 
     const { data, error } = await client
       .from("crm_leads")
@@ -396,7 +405,7 @@
     if (window.__CIS_APP_LOADING__) return;
     window.__CIS_APP_LOADING__ = true;
     const script = document.createElement("script");
-    script.src = "assets/app.js?v=20260902-1";
+    script.src = "assets/app.js?v=20260904-1";
     script.addEventListener("load", () => {
       if (document.readyState !== "loading" && !window.__CIS_APP_READY_DISPATCHED__) {
         window.__CIS_APP_READY_DISPATCHED__ = true;
@@ -414,6 +423,12 @@
       email: user.email || "",
       name: state.profile?.full_name || user.user_metadata?.full_name || (user.email || "CRM user").split("@")[0]
     };
+  }
+
+  function reloadApp() {
+    if (state.reloadQueued) return;
+    state.reloadQueued = true;
+    window.location.reload();
   }
 
   function text(value) { return String(value || "").trim(); }

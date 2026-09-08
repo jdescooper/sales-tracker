@@ -21,7 +21,7 @@
     await refreshAccess();
     state.client.auth.onAuthStateChange((_event, session) => {
       state.session = session || null;
-      refreshAccess().catch(() => {});
+      window.setTimeout(() => refreshAccess().catch(() => {}), 0);
     });
     installAdminViewWhenReady();
     installReportOverlay();
