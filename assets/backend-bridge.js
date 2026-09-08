@@ -217,7 +217,7 @@
     };
   }
 
-  async function saveLeadToBackend(lead) {
+  async function saveLeadToBackend(lead, options = {}) {
     if (!state.session) {
       return { mode: "local", lead };
     }
@@ -231,14 +231,16 @@
     const currentUserId = authData.user.id;
     const row = leadToRow(lead);
     if (!row) throw new Error("Enter a customer before saving this lead.");
-    row.assigned_to = row.assigned_to || currentUserId;
+    const isNewLead = options.isNew === true;
+    // A new lead must belong to its creator. This makes the browser payload
+    // satisfy the RLS insert policy even if stale local data supplied an owner.
+    row.assigned_to = isNewLead ? currentUserId : (row.assigned_to || currentUserId);
     row.updated_by = currentUserId;
 
-    const { data, error } = await client
-      .from("crm_leads")
-      .upsert(row, { onConflict: "external_lead_id" })
-      .select("*")
-      .single();
+    const write = isNewLead
+      ? client.from("crm_leads").insert(row)
+      : client.from("crm_leads").upsert(row, { onConflict: "external_lead_id" });
+    const { data, error } = await write.select("*").single();
     if (error) throw error;
 
     state.suppressNextStorageSync = true;
@@ -405,7 +407,7 @@
     if (window.__CIS_APP_LOADING__) return;
     window.__CIS_APP_LOADING__ = true;
     const script = document.createElement("script");
-    script.src = "assets/app.js?v=20260904-1";
+    script.src = "assets/app.js?v=20260908-1";
     script.addEventListener("load", () => {
       if (document.readyState !== "loading" && !window.__CIS_APP_READY_DISPATCHED__) {
         window.__CIS_APP_READY_DISPATCHED__ = true;

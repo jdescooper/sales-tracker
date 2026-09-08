@@ -668,6 +668,7 @@ async function saveLeadFromForm(event) {
   }
 
   const existing = state.leads.find((lead) => lead.id === data.id);
+  const isNewLead = !existing;
   const lead = normalizeLead({
     ...existing,
     ...data,
@@ -690,7 +691,7 @@ async function saveLeadFromForm(event) {
   try {
     const connected = Boolean(window.CISBackend?.isConnected?.());
     const result = connected
-      ? await window.CISBackend.saveLead(lead)
+      ? await window.CISBackend.saveLead(lead, { isNew: isNewLead })
       : { mode: "local", lead };
     const savedLead = normalizeLead(result.lead || lead);
     const index = state.leads.findIndex((item) => item.id === lead.id || item.externalLeadId === savedLead.externalLeadId);
