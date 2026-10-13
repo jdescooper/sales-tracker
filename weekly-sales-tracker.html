@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CIS Weekly Sales Tracker</title>
+  <meta name="description" content="Portable weekly sales tracker and Friday report builder for Cooper Installation Services.">
+  <style>
+    :root {
+      --app-bg:#eef2f5; --panel:#fff; --panel-soft:#f7f9fb; --ink:#111820; --muted:#5f6b78;
+      --quiet:#87919c; --line:#dfe5eb; --line-strong:#c9d3dd; --brand-black:#0d1319;
+      --orange:#ff8500; --orange-soft:#fff2df; --red:#c9362b; --red-soft:#fff1f1;
+      --green:#148657; --green-soft:#e9f7ef; --blue:#2563eb; --blue-soft:#edf4ff;
+      --yellow:#a96500; --yellow-soft:#fff7dc; --shadow:0 1px 3px rgba(16,24,40,.08);
+      --radius:12px; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+    *{box-sizing:border-box}
+    html{min-height:100%}
+    body{margin:0;min-height:100vh;background:var(--app-bg);color:var(--ink)}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    input,select,textarea{width:100%;min-height:42px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:8px;background:#fff;color:var(--ink)}
+    textarea{min-height:86px;resize:vertical}
+    input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid rgba(255,133,0,.28);outline-offset:2px}
+    [hidden]{display:none!important}
+    .shell{max-width:1480px;margin:0 auto;padding:20px}
+    .header{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+    .brand{display:grid;place-items:center;width:52px;height:52px;border-radius:12px;background:var(--brand-black);color:var(--orange);font-size:19px;font-weight:900;letter-spacing:-.04em}
+    .title{flex:1}
+    .eyebrow{margin:0 0 3px;color:var(--orange);font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+    h1,h2,h3,p{margin-top:0}
+    h1{margin-bottom:2px;font-size:clamp(24px,3vw,34px);line-height:1.08}
+    h2{margin-bottom:5px;font-size:21px}
+    h3{margin-bottom:10px;font-size:15px}
+    .subtle{margin-bottom:0;color:var(--muted);font-size:14px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .button{min-height:42px;padding:9px 14px;border:1px solid transparent;border-radius:8px;font-weight:750}
+    .button.primary{background:var(--orange);color:#161009}
+    .button.secondary{border-color:var(--line-strong);background:#fff;color:var(--ink)}
+    .button.ghost{background:transparent;color:var(--muted)}
+    .button.danger{border-color:#f0b9b5;background:var(--red-soft);color:var(--red)}
+    .button.small{min-height:34px;padding:6px 10px;font-size:13px}
+    .tabs{display:flex;gap:4px;margin-bottom:18px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+    .tab{flex:1;min-height:40px;border:0;border-radius:7px;background:transparent;color:var(--muted);font-weight:800}
+    .tab.is-active{background:var(--brand-black);color:#fff}
+    .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+    .metric,.card{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);box-shadow:var(--shadow)}
+    .metric{padding:15px}
+    .metric-label{color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+    .metric-value{margin-top:7px;font-size:26px;font-weight:850;letter-spacing:-.03em}
+    .metric-note{margin-top:3px;color:var(--muted);font-size:12px}
+    .card{padding:16px;margin-bottom:14px}
+    .toolbar{display:grid;grid-template-columns:minmax(220px,1.4fr) repeat(2,minmax(150px,.5fr)) auto;gap:10px;align-items:end}
+    label{display:grid;gap:5px;color:var(--muted);font-size:12px;font-weight:750}
+    .table-wrap{overflow:auto;margin-top:14px;border:1px solid var(--line);border-radius:10px}
+    table{width:100%;border-collapse:collapse;min-width:1050px;background:#fff}
+    th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:13px}
+    th{position:sticky;top:0;z-index:1;background:var(--panel-soft);color:var(--muted);font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+    tbody tr:last-child td{border-bottom:0}
+    tbody tr:hover{background:#fffaf3}
+    .job-name{font-weight:800}
+    .money{font-variant-numeric:tabular-nums;font-weight:750}
+    .age{display:inline-block;min-width:72px;padding:4px 7px;border-radius:999px;background:var(--blue-soft);color:var(--blue);font-size:12px;font-weight:800;text-align:center}
+    .age.is-old{background:var(--yellow-soft);color:var(--yellow)}
+    .age.is-stale{background:var(--red-soft);color:var(--red)}
+    .stage{display:inline-block;padding:4px 7px;border-radius:999px;font-size:12px;font-weight:800}
+    .stage.Quoted{background:var(--blue-soft);color:var(--blue)}
+    .stage.Scheduled{background:var(--orange-soft);color:#a65000}
+    .stage.Closed{background:var(--green-soft);color:var(--green)}
+    .row-actions{display:flex;gap:5px}
+    .empty{padding:42px 20px;text-align:center;color:var(--muted)}
+    .empty strong{display:block;margin-bottom:5px;color:var(--ink);font-size:16px}
+    .section-heading{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+    .report-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px}
+    .report-paper{min-height:520px;padding:24px;border:1px solid var(--line);border-radius:10px;background:#fff}
+    .report-title{padding-bottom:14px;border-bottom:3px solid var(--orange)}
+    .report-section{margin-top:22px}
+    .report-section h3{margin-bottom:8px;color:var(--muted);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+    .report-list{margin:0;padding:0;list-style:none}
+    .report-list li{display:grid;grid-template-columns:minmax(180px,1fr) repeat(2,minmax(95px,.35fr));gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+    .report-list li span:last-child{text-align:right}
+    .report-total{display:flex;justify-content:space-between;padding-top:10px;font-weight:850}
+    .process{padding:14px;border-radius:10px;background:var(--panel-soft)}
+    .process ol{margin:10px 0 0;padding-left:20px}
+    .process li{margin:7px 0;color:var(--muted);font-size:13px}
+    .audit-table{min-width:820px}
+    .audit-table select{min-width:145px}
+    .audit-table input{min-width:220px}
+    .status-counts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .count-chip{padding:5px 8px;border-radius:999px;background:var(--panel-soft);color:var(--muted);font-size:12px;font-weight:750}
+    dialog{width:min(720px,calc(100% - 28px));max-height:90vh;padding:0;border:0;border-radius:14px;box-shadow:0 24px 80px rgba(16,24,40,.3)}
+    dialog::backdrop{background:rgba(13,19,25,.58)}
+    .modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}
+    .modal-head h2{margin:0}
+    .modal-body{padding:18px 20px;overflow:auto}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .span-2{grid-column:1/-1}
+    .modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:14px 20px;border-top:1px solid var(--line);background:var(--panel-soft)}
+    .hint{color:var(--muted);font-size:12px;font-weight:500}
+    .toast{position:fixed;right:18px;bottom:18px;z-index:10;padding:11px 14px;border-radius:9px;background:var(--brand-black);color:#fff;box-shadow:0 12px 28px rgba(0,0,0,.24);font-size:13px}
+    .file-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+    @media(max-width:900px){
+      .header{align-items:flex-start;flex-wrap:wrap}.header .actions{width:100%;justify-content:flex-start}
+      .metrics{grid-template-columns:1fr 1fr}.toolbar{grid-template-columns:1fr 1fr}.toolbar label:first-child{grid-column:1/-1}
+      .report-grid{grid-template-columns:1fr}
+    }
+    @media(max-width:580px){
+      .shell{padding:12px}.tabs{overflow:auto}.tab{min-width:150px}.metrics{grid-template-columns:1fr}
+      .toolbar,.form-grid{grid-template-columns:1fr}.span-2,.toolbar label:first-child{grid-column:auto}
+      .report-list li{grid-template-columns:1fr}.report-list li span:last-child{text-align:left}
+      .button{width:100%}.row-actions .button{width:auto}
+    }
+    @media print{
+      body{background:#fff}.header,.tabs,.metrics,.report-side,.no-print{display:none!important}.shell{max-width:none;padding:0}
+      .card{border:0;box-shadow:none;padding:0}.report-grid{display:block}.report-paper{border:0;padding:0}.view{display:none!important}
+      #report-view{display:block!important}
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="header">
+      <div class="brand" aria-hidden="true">CIS</div>
+      <div class="title">
+        <p class="eyebrow">Sales workspace</p>
+        <h1>Weekly Sales Tracker</h1>
+        <p class="subtle">Track the facts once. Send the Friday report at EOD.</p>
+      </div>
+      <div class="actions no-print">
+        <button class="button secondary" id="import-button" type="button">Import</button>
+        <button class="button secondary" id="export-button" type="button">Export CSV</button>
+        <button class="button primary" id="add-job-button" type="button">Add job</button>
+        <input class="file-input" id="import-file" type="file" accept=".csv,.json,text/csv,application/json">
+      </div>
+    </header>
+
+    <nav class="tabs no-print" aria-label="Tracker views">
+      <button class="tab is-active" data-view="tracker-view" type="button">Sales tracker</button>
+      <button class="tab" data-view="report-view" type="button">Friday report</button>
+      <button class="tab" data-view="audit-view" type="button">Weekly checklist</button>
+    </nav>
+
+    <section class="view" id="tracker-view">
+      <div class="metrics" aria-label="Sales summary">
+        <article class="metric"><div class="metric-label">Open quotes</div><div class="metric-value" id="quoted-value">$0</div><div class="metric-note" id="quoted-note">0 jobs</div></article>
+        <article class="metric"><div class="metric-label">Scheduled</div><div class="metric-value" id="scheduled-value">$0</div><div class="metric-note" id="scheduled-note">0 jobs</div></article>
+        <article class="metric"><div class="metric-label">Closed this week</div><div class="metric-value" id="closed-value">$0</div><div class="metric-note" id="closed-note">0 jobs</div></article>
+        <article class="metric"><div class="metric-label">Missing info</div><div class="metric-value" id="missing-value">0</div><div class="metric-note">jobs need attention</div></article>
+      </div>
+
+      <section class="card">
+        <div class="toolbar">
+          <label>Search<input id="search" type="search" placeholder="Job, customer, salesperson"></label>
+          <label>Stage<select id="stage-filter"><option value="">All stages</option><option>Quoted</option><option>Scheduled</option><option>Closed</option><option value="Missing">Missing info</option></select></label>
+          <label>Salesperson<select id="owner-filter"><option value="">All salespeople</option></select></label>
+          <button class="button secondary" id="clear-filters" type="button">Clear</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Job</th><th>Salesperson</th><th>Stage</th><th>Quote</th><th>Age of quote</th><th>Scheduled</th><th>Closed</th><th>Next step</th><th></th></tr></thead>
+            <tbody id="jobs-body"></tbody>
+          </table>
+          <div class="empty" id="jobs-empty" hidden><strong>No jobs yet</strong>Add the first job or import a CRM export.</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="view" id="report-view" hidden>
+      <div class="section-heading no-print">
+        <div><h2>Friday report</h2><p class="subtle" id="report-range"></p></div>
+        <div class="actions">
+          <button class="button secondary" id="copy-report" type="button">Copy report</button>
+          <button class="button primary" id="print-report" type="button">Print / PDF</button>
+        </div>
+      </div>
+      <div class="report-grid">
+        <article class="report-paper" id="report-paper"></article>
+        <aside class="report-side no-print">
+          <div class="card">
+            <h3>Friday EOD process</h3>
+            <div class="process">
+              <ol>
+                <li>Update each job’s stage, dates, amounts, and next step.</li>
+                <li>Clear anything shown as missing information.</li>
+                <li>Open this report and review the totals.</li>
+                <li>Copy it into the Friday email and send by EOD.</li>
+              </ol>
+            </div>
+          </div>
+          <div class="card">
+            <h3>What this report includes</h3>
+            <p class="subtle">Open quotes with one exact age, scheduled jobs with dollar amounts, and jobs closed this week with expected revenue.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="view" id="audit-view" hidden>
+      <section class="card">
+        <div class="section-heading">
+          <div>
+            <h2>Veronica’s weekly checklist</h2>
+            <p class="subtle">Mark what she already owns, what to add, and what needs discussion.</p>
+            <div class="status-counts" id="status-counts"></div>
+          </div>
+          <button class="button secondary no-print" id="export-audit" type="button">Export checklist</button>
+        </div>
+        <div class="table-wrap">
+          <table class="audit-table">
+            <thead><tr><th>Weekly responsibility</th><th>Status</th><th>Notes / source</th></tr></thead>
+            <tbody id="audit-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="job-dialog">
+    <form id="job-form">
+      <div class="modal-head"><h2 id="dialog-title">Add job</h2><button class="button ghost small" id="close-dialog" type="button">Close</button></div>
+      <div class="modal-body">
+        <input type="hidden" name="id">
+        <div class="form-grid">
+          <label>Job / customer *<input name="jobName" required></label>
+          <label>Salesperson<input name="owner"></label>
+          <label>Stage *<select name="stage" required><option>Quoted</option><option>Scheduled</option><option>Closed</option></select></label>
+          <label>Quote date<input name="quoteDate" type="date"><span class="hint">Used to calculate age of quote.</span></label>
+          <label>Quote amount<input name="quoteAmount" type="number" min="0" step="0.01" inputmode="decimal"></label>
+          <label>Scheduled date<input name="scheduledDate" type="date"></label>
+          <label>Scheduled amount<input name="scheduledAmount" type="number" min="0" step="0.01" inputmode="decimal"></label>
+          <label>Closed date<input name="closedDate" type="date"></label>
+          <label>Expected revenue<input name="expectedRevenue" type="number" min="0" step="0.01" inputmode="decimal"></label>
+          <label class="span-2">Next step / note<textarea name="nextStep" placeholder="Follow up, collect payment, confirm install..."></textarea></label>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="button danger" id="delete-job" type="button" hidden>Delete</button>
+        <button class="button secondary" id="cancel-dialog" type="button">Cancel</button>
+        <button class="button primary" type="submit">Save job</button>
+      </div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var JOBS_KEY = "cis-weekly-sales-jobs-v1";
+      var AUDIT_KEY = "cis-weekly-sales-audit-v1";
+      var DATE_FIELDS = ["quoteDate", "scheduledDate", "closedDate"];
+      var NUMBER_FIELDS = ["quoteAmount", "scheduledAmount", "expectedRevenue"];
+      var responsibilities = [
+        "Enter new leads and assign the salesperson",
+        "Create measure or work orders",
+        "Process completed measures and post required details",
+        "Send agreements and payment requests",
+        "Follow up on open quotes, agreements, and payments",
+        "Confirm material quantities, orders, stock, and ETAs",
+        "Resolve or escalate missing information and stalled jobs",
+        "Close completed jobs and reconcile the record",
+        "Audit CRM records for missing dates, amounts, owners, or next steps",
+        "Send store thank-you or follow-up communication",
+        "Prepare and send the Friday sales report by EOD"
+      ];
+      var jobs = load(JOBS_KEY, []);
+      var audit = load(AUDIT_KEY, responsibilities.map(function (task, index) {
+        return { id: String(index + 1), task: task, status: "Needs discussion", notes: "" };
+      }));
+
+      var qs = function (selector) { return document.querySelector(selector); };
+      var qsa = function (selector) { return Array.prototype.slice.call(document.querySelectorAll(selector)); };
+      var money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+      var shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+      function load(key, fallback) {
+        try {
+          var value = JSON.parse(localStorage.getItem(key));
+          return Array.isArray(value) ? value : fallback;
+        } catch (error) {
+          return fallback;
+        }
+      }
+
+      function save() {
+        localStorage.setItem(JOBS_KEY, JSON.stringify(jobs));
+        localStorage.setItem(AUDIT_KEY, JSON.stringify(audit));
+      }
+
+      function safe(value) {
+        return String(value == null ? "" : value)
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      }
+
+      function localDate(value) {
+        if (!value) return null;
+        var parts = String(value).split("-");
+        if (parts.length !== 3) return null;
+        var date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        return isNaN(date.getTime()) ? null : date;
+      }
+
+      function formatDate(value) {
+        var date = localDate(value);
+        return date ? shortDate.format(date) : "—";
+      }
+
+      function quoteAge(job) {
+        var quoted = localDate(job.quoteDate);
+        if (!quoted) return null;
+        var today = new Date();
+        today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        return Math.max(0, Math.floor((today - quoted) / 86400000));
+      }
+
+      function ageClass(age) {
+        if (age == null) return "";
+        if (age >= 30) return " is-stale";
+        if (age >= 14) return " is-old";
+        return "";
+      }
+
+      function requiredMissing(job) {
+        if (!job.jobName || !job.stage) return true;
+        if (job.stage === "Quoted") return !job.quoteDate || !(Number(job.quoteAmount) > 0);
+        if (job.stage === "Scheduled") return !job.scheduledDate || !(Number(job.scheduledAmount) > 0);
+        if (job.stage === "Closed") return !job.closedDate || !(Number(job.expectedRevenue) > 0);
+        return false;
+      }
+
+      function weekBounds() {
+        var now = new Date();
+        var date = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        var day = date.getDay();
+        var mondayOffset = day === 0 ? -6 : 1 - day;
+        var monday = new Date(date);
+        monday.setDate(date.getDate() + mondayOffset);
+        var friday = new Date(monday);
+        friday.setDate(monday.getDate() + 4);
+        return { monday: monday, friday: friday };
+      }
+
+      function isThisWeek(value) {
+        var date = localDate(value);
+        if (!date) return false;
+        var bounds = weekBounds();
+        return date >= bounds.monday && date <= bounds.friday;
+      }
+
+      function total(list, field) {
+        return list.reduce(function (sum, item) { return sum + (Number(item[field]) || 0); }, 0);
+      }
+
+      function plural(count, word) {
+        return count + " " + word + (count === 1 ? "" : "s");
+      }
+
+      function renderMetrics() {
+        var quoted = jobs.filter(function (job) { return job.stage === "Quoted"; });
+        var scheduled = jobs.filter(function (job) { return job.stage === "Scheduled"; });
+        var closed = jobs.filter(function (job) { return job.stage === "Closed" && isThisWeek(job.closedDate); });
+        var ages = quoted.map(quoteAge).filter(function (age) { return age != null; });
+        var average = ages.length ? Math.round(ages.reduce(function (a, b) { return a + b; }, 0) / ages.length) : null;
+        qs("#quoted-value").textContent = money.format(total(quoted, "quoteAmount"));
+        qs("#quoted-note").textContent = plural(quoted.length, "job") + (average == null ? "" : " · avg age " + average + " days");
+        qs("#scheduled-value").textContent = money.format(total(scheduled, "scheduledAmount"));
+        qs("#scheduled-note").textContent = plural(scheduled.length, "job");
+        qs("#closed-value").textContent = money.format(total(closed, "expectedRevenue"));
+        qs("#closed-note").textContent = plural(closed.length, "job");
+        qs("#missing-value").textContent = String(jobs.filter(requiredMissing).length);
+      }
+
+      function renderOwners() {
+        var current = qs("#owner-filter").value;
+        var owners = jobs.map(function (job) { return job.owner.trim(); }).filter(Boolean)
+          .filter(function (owner, index, list) { return list.indexOf(owner) === index; })
+          .sort(function (a, b) { return a.localeCompare(b); });
+        qs("#owner-filter").innerHTML = '<option value="">All salespeople</option>' + owners.map(function (owner) {
+          return '<option value="' + safe(owner) + '">' + safe(owner) + "</option>";
+        }).join("");
+        qs("#owner-filter").value = owners.indexOf(current) >= 0 ? current : "";
+      }
+
+      function visibleJobs() {
+        var search = qs("#search").value.trim().toLowerCase();
+        var stage = qs("#stage-filter").value;
+        var owner = qs("#owner-filter").value;
+        return jobs.filter(function (job) {
+          var haystack = [job.jobName, job.owner, job.nextStep].join(" ").toLowerCase();
+          return (!search || haystack.indexOf(search) >= 0)
+            && (!stage || (stage === "Missing" ? requiredMissing(job) : job.stage === stage))
+            && (!owner || job.owner === owner);
+        }).sort(function (a, b) {
+          var order = { Quoted: 0, Scheduled: 1, Closed: 2 };
+          return order[a.stage] - order[b.stage] || String(b.quoteDate).localeCompare(String(a.quoteDate));
+        });
+      }
+
+      function renderJobs() {
+        var list = visibleJobs();
+        qs("#jobs-empty").hidden = list.length > 0;
+        qs("#jobs-body").innerHTML = list.map(function (job) {
+          var age = quoteAge(job);
+          var quoteText = (job.quoteDate ? formatDate(job.quoteDate) : "No date") + "<br><span class=money>" + money.format(Number(job.quoteAmount) || 0) + "</span>";
+          var scheduledText = job.scheduledDate || Number(job.scheduledAmount) ? formatDate(job.scheduledDate) + "<br><span class=money>" + money.format(Number(job.scheduledAmount) || 0) + "</span>" : "—";
+          var closedText = job.closedDate || Number(job.expectedRevenue) ? formatDate(job.closedDate) + "<br><span class=money>" + money.format(Number(job.expectedRevenue) || 0) + "</span>" : "—";
+          return "<tr>" +
+            '<td><div class="job-name">' + safe(job.jobName) + "</div>" + (requiredMissing(job) ? '<span class="hint" style="color:var(--red)">Missing information</span>' : "") + "</td>" +
+            "<td>" + safe(job.owner || "—") + "</td>" +
+            '<td><span class="stage ' + safe(job.stage) + '">' + safe(job.stage) + "</span></td>" +
+            "<td>" + quoteText + "</td>" +
+            '<td><span class="age' + ageClass(age) + '">' + (age == null ? "No date" : age + " days") + "</span></td>" +
+            "<td>" + scheduledText + "</td>" +
+            "<td>" + closedText + "</td>" +
+            "<td>" + safe(job.nextStep || "—") + "</td>" +
+            '<td><div class="row-actions"><button class="button secondary small edit-job" data-id="' + safe(job.id) + '" type="button">Edit</button></div></td>' +
+          "</tr>";
+        }).join("");
+      }
+
+      function renderReport() {
+        var quoted = jobs.filter(function (job) { return job.stage === "Quoted"; })
+          .sort(function (a, b) { return (quoteAge(b) || 0) - (quoteAge(a) || 0); });
+        var scheduled = jobs.filter(function (job) { return job.stage === "Scheduled"; })
+          .sort(function (a, b) { return String(a.scheduledDate).localeCompare(String(b.scheduledDate)); });
+        var closed = jobs.filter(function (job) { return job.stage === "Closed" && isThisWeek(job.closedDate); })
+          .sort(function (a, b) { return String(a.closedDate).localeCompare(String(b.closedDate)); });
+        var missing = jobs.filter(requiredMissing);
+        var bounds = weekBounds();
+        qs("#report-range").textContent = shortDate.format(bounds.monday) + " – " + shortDate.format(bounds.friday);
+
+        function rows(list, kind) {
+          if (!list.length) return '<li><span class="subtle">None</span><span></span><span></span></li>';
+          return list.map(function (job) {
+            if (kind === "quoted") return "<li><span><strong>" + safe(job.jobName) + "</strong><br>" + safe(job.owner || "Unassigned") + "</span><span>Age: " + (quoteAge(job) == null ? "—" : quoteAge(job) + " days") + "</span><span class=money>" + money.format(Number(job.quoteAmount) || 0) + "</span></li>";
+            if (kind === "scheduled") return "<li><span><strong>" + safe(job.jobName) + "</strong><br>" + safe(job.owner || "Unassigned") + "</span><span>" + formatDate(job.scheduledDate) + "</span><span class=money>" + money.format(Number(job.scheduledAmount) || 0) + "</span></li>";
+            return "<li><span><strong>" + safe(job.jobName) + "</strong><br>" + safe(job.owner || "Unassigned") + "</span><span>" + formatDate(job.closedDate) + "</span><span class=money>" + money.format(Number(job.expectedRevenue) || 0) + "</span></li>";
+          }).join("");
+        }
+
+        qs("#report-paper").innerHTML =
+          '<div class="report-title"><p class="eyebrow">Friday EOD</p><h2>Weekly Sales Report</h2><p class="subtle">Week of ' + safe(shortDate.format(bounds.monday)) + " – " + safe(shortDate.format(bounds.friday)) + "</p></div>" +
+          '<section class="report-section"><h3>Open quotes</h3><ul class="report-list">' + rows(quoted, "quoted") + '</ul><div class="report-total"><span>' + plural(quoted.length, "job") + '</span><span>' + money.format(total(quoted, "quoteAmount")) + "</span></div></section>" +
+          '<section class="report-section"><h3>Scheduled jobs</h3><ul class="report-list">' + rows(scheduled, "scheduled") + '</ul><div class="report-total"><span>' + plural(scheduled.length, "job") + '</span><span>' + money.format(total(scheduled, "scheduledAmount")) + "</span></div></section>" +
+          '<section class="report-section"><h3>Closed this week · expected revenue</h3><ul class="report-list">' + rows(closed, "closed") + '</ul><div class="report-total"><span>' + plural(closed.length, "job") + '</span><span>' + money.format(total(closed, "expectedRevenue")) + "</span></div></section>" +
+          (missing.length ? '<section class="report-section"><h3>Missing information</h3><p class="subtle">' + safe(missing.map(function (job) { return job.jobName; }).join(", ")) + "</p></section>" : "");
+      }
+
+      function reportText() {
+        var quoted = jobs.filter(function (job) { return job.stage === "Quoted"; });
+        var scheduled = jobs.filter(function (job) { return job.stage === "Scheduled"; });
+        var closed = jobs.filter(function (job) { return job.stage === "Closed" && isThisWeek(job.closedDate); });
+        var bounds = weekBounds();
+        var lines = ["WEEKLY SALES REPORT", shortDate.format(bounds.monday) + " – " + shortDate.format(bounds.friday), ""];
+        function add(title, list, line, field) {
+          lines.push(title);
+          if (!list.length) lines.push("None");
+          list.forEach(function (job) { lines.push(line(job)); });
+          lines.push("Total: " + money.format(total(list, field)), "");
+        }
+        add("OPEN QUOTES", quoted, function (job) {
+          return "- " + job.jobName + " | " + (job.owner || "Unassigned") + " | " + money.format(Number(job.quoteAmount) || 0) + " | Age: " + (quoteAge(job) == null ? "no quote date" : quoteAge(job) + " days") + (job.nextStep ? " | " + job.nextStep : "");
+        }, "quoteAmount");
+        add("SCHEDULED JOBS", scheduled, function (job) {
+          return "- " + job.jobName + " | " + (job.owner || "Unassigned") + " | " + formatDate(job.scheduledDate) + " | " + money.format(Number(job.scheduledAmount) || 0);
+        }, "scheduledAmount");
+        add("CLOSED THIS WEEK — EXPECTED REVENUE", closed, function (job) {
+          return "- " + job.jobName + " | " + (job.owner || "Unassigned") + " | " + formatDate(job.closedDate) + " | " + money.format(Number(job.expectedRevenue) || 0);
+        }, "expectedRevenue");
+        return lines.join("\n").trim();
+      }
+
+      function renderAudit() {
+        qs("#audit-body").innerHTML = audit.map(function (item) {
+          return "<tr><td><strong>" + safe(item.task) + "</strong></td><td><select class=audit-status data-id=" + safe(item.id) + ">" +
+            ["Already doing", "Add to routine", "Needs discussion"].map(function (status) {
+              return '<option' + (item.status === status ? " selected" : "") + ">" + status + "</option>";
+            }).join("") + '</select></td><td><input class=audit-notes data-id="' + safe(item.id) + '" value="' + safe(item.notes) + '" placeholder="Optional"></td></tr>';
+        }).join("");
+        var counts = ["Already doing", "Add to routine", "Needs discussion"].map(function (status) {
+          return '<span class="count-chip">' + status + ": " + audit.filter(function (item) { return item.status === status; }).length + "</span>";
+        }).join("");
+        qs("#status-counts").innerHTML = counts;
+      }
+
+      function renderAll() {
+        renderMetrics();
+        renderOwners();
+        renderJobs();
+        renderReport();
+        renderAudit();
+        save();
+      }
+
+      function newId() {
+        return "job-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7);
+      }
+
+      function openJob(id) {
+        var form = qs("#job-form");
+        form.reset();
+        form.elements.id.value = "";
+        qs("#delete-job").hidden = true;
+        qs("#dialog-title").textContent = "Add job";
+        if (id) {
+          var job = jobs.find(function (item) { return item.id === id; });
+          if (!job) return;
+          Object.keys(job).forEach(function (key) {
+            if (form.elements[key]) form.elements[key].value = job[key];
+          });
+          qs("#dialog-title").textContent = "Edit job";
+          qs("#delete-job").hidden = false;
+        }
+        qs("#job-dialog").showModal();
+      }
+
+      function download(name, contentValue, type) {
+        var blob = new Blob([contentValue], { type: type || "text/plain;charset=utf-8" });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement("a");
+        link.href = url;
+        link.download = name;
+        link.click();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 500);
+      }
+
+      function csvCell(value) {
+        var string = String(value == null ? "" : value);
+        return '"' + string.replace(/"/g, '""') + '"';
+      }
+
+      function jobsCsv() {
+        var fields = ["jobName", "owner", "stage", "quoteDate", "quoteAmount", "scheduledDate", "scheduledAmount", "closedDate", "expectedRevenue", "nextStep"];
+        return [fields.join(",")].concat(jobs.map(function (job) {
+          return fields.map(function (field) { return csvCell(job[field]); }).join(",");
+        })).join("\r\n");
+      }
+
+      function parseCsv(textValue) {
+        var rows = [], row = [], cell = "", quoted = false;
+        for (var i = 0; i < textValue.length; i += 1) {
+          var char = textValue[i], next = textValue[i + 1];
+          if (char === '"' && quoted && next === '"') { cell += '"'; i += 1; }
+          else if (char === '"') quoted = !quoted;
+          else if (char === "," && !quoted) { row.push(cell); cell = ""; }
+          else if ((char === "\n" || char === "\r") && !quoted) {
+            if (char === "\r" && next === "\n") i += 1;
+            row.push(cell); if (row.some(function (value) { return value.trim(); })) rows.push(row);
+            row = []; cell = "";
+          } else cell += char;
+        }
+        row.push(cell); if (row.some(function (value) { return value.trim(); })) rows.push(row);
+        if (rows.length < 2) return [];
+        var headers = rows.shift().map(function (value) { return value.trim(); });
+        return rows.map(function (values) {
+          var item = { id: newId() };
+          headers.forEach(function (header, index) { item[header] = values[index] || ""; });
+          NUMBER_FIELDS.forEach(function (field) { item[field] = Number(item[field]) || 0; });
+          if (["Quoted", "Scheduled", "Closed"].indexOf(item.stage) < 0) item.stage = "Quoted";
+          return item;
+        });
+      }
+
+      function showToast(message) {
+        var toast = qs("#toast");
+        toast.textContent = message;
+        toast.hidden = false;
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(function () { toast.hidden = true; }, 2400);
+      }
+
+      qsa(".tab").forEach(function (button) {
+        button.addEventListener("click", function () {
+          qsa(".tab").forEach(function (tab) { tab.classList.toggle("is-active", tab === button); });
+          qsa(".view").forEach(function (view) { view.hidden = view.id !== button.dataset.view; });
+          if (button.dataset.view === "report-view") renderReport();
+        });
+      });
+
+      qs("#add-job-button").addEventListener("click", function () { openJob(); });
+      qs("#close-dialog").addEventListener("click", function () { qs("#job-dialog").close(); });
+      qs("#cancel-dialog").addEventListener("click", function () { qs("#job-dialog").close(); });
+
+      qs("#job-form").addEventListener("submit", function (event) {
+        event.preventDefault();
+        var data = Object.fromEntries(new FormData(event.currentTarget).entries());
+        NUMBER_FIELDS.forEach(function (field) { data[field] = Number(data[field]) || 0; });
+        var existing = jobs.findIndex(function (job) { return job.id === data.id; });
+        if (existing >= 0) jobs[existing] = data;
+        else { data.id = newId(); jobs.push(data); }
+        qs("#job-dialog").close();
+        renderAll();
+        showToast("Job saved");
+      });
+
+      qs("#delete-job").addEventListener("click", function () {
+        var id = qs("#job-form").elements.id.value;
+        var job = jobs.find(function (item) { return item.id === id; });
+        if (!job || !confirm("Delete " + job.jobName + "?")) return;
+        jobs = jobs.filter(function (item) { return item.id !== id; });
+        qs("#job-dialog").close();
+        renderAll();
+        showToast("Job deleted");
+      });
+
+      qs("#jobs-body").addEventListener("click", function (event) {
+        var button = event.target.closest(".edit-job");
+        if (button) openJob(button.dataset.id);
+      });
+
+      ["#search", "#stage-filter", "#owner-filter"].forEach(function (selector) {
+        qs(selector).addEventListener(selector === "#search" ? "input" : "change", renderJobs);
+      });
+      qs("#clear-filters").addEventListener("click", function () {
+        qs("#search").value = ""; qs("#stage-filter").value = ""; qs("#owner-filter").value = ""; renderJobs();
+      });
+
+      qs("#copy-report").addEventListener("click", function () {
+        var textValue = reportText();
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(textValue).then(function () { showToast("Report copied"); });
+        } else {
+          var area = document.createElement("textarea");
+          area.value = textValue; document.body.appendChild(area); area.select(); document.execCommand("copy"); area.remove();
+          showToast("Report copied");
+        }
+      });
+      qs("#print-report").addEventListener("click", function () { window.print(); });
+      qs("#export-button").addEventListener("click", function () { download("cis-weekly-sales.csv", jobsCsv(), "text/csv;charset=utf-8"); });
+      qs("#import-button").addEventListener("click", function () { qs("#import-file").click(); });
+
+      qs("#import-file").addEventListener("change", function (event) {
+        var file = event.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            var imported = file.name.toLowerCase().endsWith(".json") ? JSON.parse(reader.result) : parseCsv(reader.result);
+            if (!Array.isArray(imported)) throw new Error("Expected a list of jobs");
+            jobs = imported.map(function (job) {
+              var clean = Object.assign({ id: newId(), jobName: "", owner: "", stage: "Quoted", quoteDate: "", quoteAmount: 0, scheduledDate: "", scheduledAmount: 0, closedDate: "", expectedRevenue: 0, nextStep: "" }, job);
+              if (!clean.id) clean.id = newId();
+              NUMBER_FIELDS.forEach(function (field) { clean[field] = Number(clean[field]) || 0; });
+              DATE_FIELDS.forEach(function (field) { clean[field] = clean[field] || ""; });
+              return clean;
+            });
+            renderAll(); showToast(plural(jobs.length, "job") + " imported");
+          } catch (error) {
+            alert("Could not import that file. Use this tracker’s CSV format or a JSON array.");
+          }
+          event.target.value = "";
+        };
+        reader.readAsText(file);
+      });
+
+      qs("#audit-body").addEventListener("change", function (event) {
+        if (!event.target.matches(".audit-status")) return;
+        var item = audit.find(function (entry) { return entry.id === event.target.dataset.id; });
+        if (item) { item.status = event.target.value; renderAudit(); save(); }
+      });
+      qs("#audit-body").addEventListener("input", function (event) {
+        if (!event.target.matches(".audit-notes")) return;
+        var item = audit.find(function (entry) { return entry.id === event.target.dataset.id; });
+        if (item) { item.notes = event.target.value; save(); }
+      });
+      qs("#export-audit").addEventListener("click", function () {
+        var csv = "Weekly responsibility,Status,Notes\r\n" + audit.map(function (item) {
+          return [item.task, item.status, item.notes].map(csvCell).join(",");
+        }).join("\r\n");
+        download("veronica-weekly-checklist.csv", csv, "text/csv;charset=utf-8");
+      });
+
+      window.CISWeeklySalesTracker = {
+        getJobs: function () { return JSON.parse(JSON.stringify(jobs)); },
+        setJobs: function (nextJobs) { if (Array.isArray(nextJobs)) { jobs = nextJobs; renderAll(); } },
+        buildFridayReport: reportText,
+        fields: ["jobName", "owner", "stage", "quoteDate", "quoteAmount", "scheduledDate", "scheduledAmount", "closedDate", "expectedRevenue", "nextStep"]
+      };
+
+      renderAll();
+    }());
+  </script>
+</body>
+</html>
