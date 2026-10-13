@@ -222,7 +222,7 @@
         <input type="hidden" name="id">
         <div class="form-grid">
           <label>Job / customer *<input name="jobName" required></label>
-          <label>Salesperson<input name="owner"></label>
+          <label>Salesperson *<select name="owner" required><option>Tyler Choate</option><option>April Hearld</option><option>Mary Kirkland</option><option>Bri McBride</option><option selected>Unassigned</option></select></label>
           <label>Stage *<select name="stage" required><option>Quoted</option><option>Scheduled</option><option>Closed</option></select></label>
           <label>Quote date<input name="quoteDate" type="date"><span class="hint">Used to calculate age of quote.</span></label>
           <label>Quote amount<input name="quoteAmount" type="number" min="0" step="0.01" inputmode="decimal"></label>
@@ -250,6 +250,7 @@
       var AUDIT_KEY = "cis-weekly-sales-audit-v1";
       var DATE_FIELDS = ["quoteDate", "scheduledDate", "closedDate"];
       var NUMBER_FIELDS = ["quoteAmount", "scheduledAmount", "expectedRevenue"];
+      var salespeople = ["Tyler Choate", "April Hearld", "Mary Kirkland", "Bri McBride", "Unassigned"];
       var responsibilities = [
         "Enter new leads and assign the salesperson",
         "Create measure or work orders",
@@ -373,13 +374,10 @@
 
       function renderOwners() {
         var current = qs("#owner-filter").value;
-        var owners = jobs.map(function (job) { return job.owner.trim(); }).filter(Boolean)
-          .filter(function (owner, index, list) { return list.indexOf(owner) === index; })
-          .sort(function (a, b) { return a.localeCompare(b); });
-        qs("#owner-filter").innerHTML = '<option value="">All salespeople</option>' + owners.map(function (owner) {
+        qs("#owner-filter").innerHTML = '<option value="">All salespeople</option>' + salespeople.map(function (owner) {
           return '<option value="' + safe(owner) + '">' + safe(owner) + "</option>";
         }).join("");
-        qs("#owner-filter").value = owners.indexOf(current) >= 0 ? current : "";
+        qs("#owner-filter").value = salespeople.indexOf(current) >= 0 ? current : "";
       }
 
       function visibleJobs() {
@@ -641,6 +639,7 @@
             jobs = imported.map(function (job) {
               var clean = Object.assign({ id: newId(), jobName: "", owner: "", stage: "Quoted", quoteDate: "", quoteAmount: 0, scheduledDate: "", scheduledAmount: 0, closedDate: "", expectedRevenue: 0, nextStep: "" }, job);
               if (!clean.id) clean.id = newId();
+              clean.owner = salespeople.indexOf(clean.owner) >= 0 ? clean.owner : "Unassigned";
               NUMBER_FIELDS.forEach(function (field) { clean[field] = Number(clean[field]) || 0; });
               DATE_FIELDS.forEach(function (field) { clean[field] = clean[field] || ""; });
               return clean;
